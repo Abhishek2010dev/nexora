@@ -1,3 +1,10 @@
+// Copyright (c) 2025 Abhishek Kumar Singh.
+// Copyright (c) 2013 Julien Schmidt
+// Copyright (c) 2015-2016, 招牌疯子
+// Copyright (c) 2018-present Sergio Andres Virviescas Santana, fasthttp
+// All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be found
+// in the LICENSE file at https://raw.githubusercontent.com/julienschmidt/httprouter/master/LICENSE.
 package nexora
 
 import (
