@@ -1,6 +1,8 @@
 package nexora
 
-import "net/http"
+import (
+	"net/http"
+)
 
 // Context represents the context of a single HTTP request.
 // It holds the request, response writer, URL parameters, and a stack of handlers.
@@ -11,18 +13,22 @@ type Context struct {
 	writer   http.ResponseWriter // The response writer to send the response back to the client.
 	index    int                 // The current index in the handlers slice, used to track which handler is currently being executed.
 	handlers []Handler           // A slice of handlers to be executed in order for this request.
+	nexora   *Nexora             // A reference to the Nexora instance that created this context, allowing access to shared resources and settings.
 }
 
-// NewContext creates a new Context for the given HTTP request and response writer.
-// It initializes the context with the provided URL parameters and a slice of handlers.
-func NewContext(w http.ResponseWriter, r *http.Request, params Params, handlers ...Handler) *Context {
+func NewContext(nexora *Nexora) *Context {
 	return &Context{
-		params:   params,
-		request:  r,
-		writer:   w,
-		index:    -1,
-		handlers: handlers,
+		nexora: nexora,
 	}
+}
+
+// init initializes the context with the given request, response writer, URL parameters, and handlers.
+func (c *Context) init(request *http.Request, writer http.ResponseWriter, params Params, handlers ...Handler) {
+	c.request = request
+	c.writer = writer
+	c.params = params
+	c.index = -1
+	c.handlers = handlers
 }
 
 // Next executes the next handler in the context's handlers slice.
