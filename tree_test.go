@@ -77,3 +77,28 @@ func TestTree_CaseInsensitivePath(t *testing.T) {
 		t.Errorf("expected corrected path '/Contact', got '%s'", got)
 	}
 }
+
+func TestTree_RegexRoute(t *testing.T) {
+	tree := &tree{root: newNode("/")}
+
+	// Add route with regex pattern
+	tree.Add("/product/{pid:[0-9]+}", []Handler{h("productHandler")})
+
+	// Match valid path
+	handlers, params, tsr := tree.Get("/product/456")
+	if tsr {
+		t.Errorf("unexpected TSR for /product/456")
+	}
+	if handlers == nil {
+		t.Fatalf("expected handler, got nil")
+	}
+	if params["pid"] != "456" {
+		t.Errorf("expected param 'pid' to be '456', got '%s'", params["pid"])
+	}
+
+	// Match invalid path (non-numeric)
+	handlers, params, tsr = tree.Get("/product/abc")
+	if handlers != nil {
+		t.Errorf("expected no handler for /product/abc")
+	}
+}

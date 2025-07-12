@@ -386,9 +386,8 @@ func (n *node) getFromChild(path string) ([]Handler, map[string]string, bool) {
 			values := []string{gstrings.Copy(paramVal)}
 
 			if child.paramRegex != nil {
-				var ok bool
 				end, values = child.findEndIndexAndValues(paramVal)
-				if !ok || end == -1 {
+				if end == -1 {
 					continue
 				}
 			}
