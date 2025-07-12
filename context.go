@@ -8,7 +8,7 @@ import (
 // It holds the request, response writer, URL parameters, and a stack of handlers.
 // It provides methods to access these values and to control the flow of request handling.
 type Context struct {
-	params   Params              // URL parameters for the request, stored as a slice of Param structs.
+	params   map[string]string   // URL parameters extracted from the request path.
 	request  *http.Request       // The original HTTP request object.
 	writer   http.ResponseWriter // The response writer to send the response back to the client.
 	index    int                 // The current index in the handlers slice, used to track which handler is currently being executed.
@@ -16,19 +16,18 @@ type Context struct {
 	nexora   *Nexora             // A reference to the Nexora instance that created this context, allowing access to shared resources and settings.
 }
 
+// NewContext creates a new Context instance for handling HTTP requests.
 func NewContext(nexora *Nexora) *Context {
 	return &Context{
 		nexora: nexora,
 	}
 }
 
-// init initializes the context with the given request, response writer, URL parameters, and handlers.
-func (c *Context) init(request *http.Request, writer http.ResponseWriter, params Params, handlers ...Handler) {
+// Init initializes the context with the given request and response writer.
+func (c *Context) init(request *http.Request, writer http.ResponseWriter) {
 	c.request = request
 	c.writer = writer
-	c.params = params
 	c.index = -1
-	c.handlers = handlers
 }
 
 // Next executes the next handler in the context's handlers slice.
@@ -56,13 +55,13 @@ func (c *Context) ResponseWriter() http.ResponseWriter {
 }
 
 // Params returns the URL parameters associated with this context.
-func (c *Context) Params() Params {
+func (c *Context) Params() map[string]string {
 	return c.params
 }
 
 // Param retrieves the value of a URL parameter by its name.
 func (c *Context) Param(name string) string {
-	return c.params.ByName(name)
+	return c.params[name]
 }
 
 // Abort stops the execution of any further handlers in the context's handlers slice.

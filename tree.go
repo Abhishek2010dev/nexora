@@ -19,12 +19,12 @@ import (
 )
 
 const (
-	errSetHandler         = "a handler is already registered for path '%s'"
-	errSetWildcardHandler = "a wildcard handler is already registered for path '%s'"
-	errWildPathConflict   = "'%s' in new path '%s' conflicts with existing wild path '%s' in existing prefix '%s'"
-	errWildcardConflict   = "'%s' in new path '%s' conflicts with existing wildcard '%s' in existing prefix '%s'"
-	errWildcardSlash      = "no / before wildcard in path '%s'"
-	errWildcardNotAtEnd   = "wildcard routes are only allowed at the end of the path in path '%s'"
+	errSetHandler         = "nexora: a handler is already registered for path '%s'"
+	errSetWildcardHandler = "nexora: a wildcard handler is already registered for path '%s'"
+	errWildPathConflict   = "nexora: '%s' in new path '%s' conflicts with existing wild path '%s' in existing prefix '%s'"
+	errWildcardConflict   = "nexora: '%s' in new path '%s' conflicts with existing wildcard '%s' in existing prefix '%s'"
+	errWildcardSlash      = "nexora: no / before wildcard in path '%s'"
+	errWildcardNotAtEnd   = "nexora: wildcard routes are only allowed at the end of the path in path '%s'"
 )
 
 type radixError struct {
@@ -560,18 +560,27 @@ func (n *node) Less(i, j int) bool {
 	return len(n.children[i].children) > len(n.children[j].children)
 }
 
-// Tree is a routes storage
-type Tree struct {
+// tree is a routes storage
+type tree struct {
 	root *node
 
 	// If enabled, the node handler could be updated
 	Mutable bool
 }
 
+// New returns an empty routes storage
+func newTree() *tree {
+	return &tree{
+		root: &node{
+			nType: root,
+		},
+	}
+}
+
 // Add adds a node with the given handle to the path.
 //
 // WARNING: Not concurrency-safe!
-func (t *Tree) Add(path string, handlers []Handler) {
+func (t *tree) Add(path string, handlers []Handler) {
 	if !strings.HasPrefix(path, "/") {
 		panicf("path must begin with '/' in path '%s'", path)
 	} else if handlers == nil {
@@ -618,7 +627,7 @@ func (t *Tree) Add(path string, handlers []Handler) {
 
 // Get returns the handler(s) registered with the given path.
 // It also returns any route parameters as map[string]string and a bool indicating a TSR (trailing slash redirect).
-func (t *Tree) Get(path string) ([]Handler, map[string]string, bool) {
+func (t *tree) Get(path string) ([]Handler, map[string]string, bool) {
 	if len(path) > len(t.root.path) {
 		if path[:len(t.root.path)] != t.root.path {
 			return nil, nil, false
@@ -649,7 +658,7 @@ func (t *Tree) Get(path string) ([]Handler, map[string]string, bool) {
 // It can optionally also fix trailing slashes.
 // It returns the case-corrected path and a bool indicating whether the lookup
 // was successful.
-func (t *Tree) FindCaseInsensitivePath(path string, fixTrailingSlash bool, buf *bytebufferpool.ByteBuffer) bool {
+func (t *tree) FindCaseInsensitivePath(path string, fixTrailingSlash bool, buf *bytebufferpool.ByteBuffer) bool {
 	found, tsr := t.root.find(path, buf)
 
 	if !found || (tsr && !fixTrailingSlash) {

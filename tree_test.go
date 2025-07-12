@@ -21,7 +21,7 @@ func handlerName(_ Handler) string {
 }
 
 func TestTree_StaticRoute(t *testing.T) {
-	tree := &Tree{root: newNode("/")}
+	tree := &tree{root: newNode("/")}
 	tree.Add("/home", []Handler{h("homeHandler")})
 
 	handlers, params, tsr := tree.Get("/home")
@@ -37,7 +37,7 @@ func TestTree_StaticRoute(t *testing.T) {
 }
 
 func TestTree_ParamRoute(t *testing.T) {
-	tree := &Tree{root: newNode("/")}
+	tree := &tree{root: newNode("/")}
 	tree.Add("/user/{id}", []Handler{h("userHandler")})
 
 	handlers, params, tsr := tree.Get("/user/123")
@@ -53,7 +53,7 @@ func TestTree_ParamRoute(t *testing.T) {
 }
 
 func TestTree_TrailingSlashRedirect(t *testing.T) {
-	tree := &Tree{root: newNode("/")}
+	tree := &tree{root: newNode("/")}
 	tree.Add("/about", []Handler{h("aboutHandler")})
 
 	_, _, tsr := tree.Get("/about/")
@@ -63,7 +63,7 @@ func TestTree_TrailingSlashRedirect(t *testing.T) {
 }
 
 func TestTree_CaseInsensitivePath(t *testing.T) {
-	tree := &Tree{root: newNode("/")}
+	tree := &tree{root: newNode("/")}
 	tree.Add("/Contact", []Handler{h("contactHandler")})
 
 	buf := bytebufferpool.Get()
