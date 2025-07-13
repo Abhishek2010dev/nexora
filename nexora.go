@@ -33,6 +33,9 @@ type Nexora struct {
 	treeMutable        bool
 	customMethodsIndex map[string]int
 	registeredPaths    map[string][]string
+	namedRoutes        map[string]*Route // Maps route names to paths
+
+	RouteGroup // Default route group for new routes
 
 	// Enables automatic redirection if the current route can't be matched but a
 	// handler for the path with (without) the trailing slash exists.
@@ -104,13 +107,21 @@ func New() *Nexora {
 		RedirectFixedPath:      true,
 		HandleMethodNotAllowed: true,
 		HandleOPTIONS:          true,
+		namedRoutes:            make(map[string]*Route),
 	}
+	nexora.RouteGroup = *newRouteGroup(nexora, "", make([]Handler, 0))
 	nexora.pool = &sync.Pool{
 		New: func() any {
 			return newContext(nexora)
 		},
 	}
 	return nexora
+}
+
+// Route returns the named route.
+// Nil is returned if the named route cannot be found.
+func (r *Nexora) Route(name string) *Route {
+	return r.namedRoutes[name]
 }
 
 // RegisterCustomMethod registers a custom HTTP method with an index.
@@ -434,4 +445,19 @@ func (n *Nexora) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.WriteHeader(http.StatusNotFound)
 	}
+}
+
+// Run starts the HTTP server on the specified address.
+// It uses the ServeHTTP method to handle incoming requests.
+// The address should be in the format "host:port", e.g., ":8080" or "localhost:8080".
+// It returns an error if the server fails to start.
+// Example usage: nexora.Run(":8080")
+// If the address is empty, it defaults to ":8080".
+func (n *Nexora) Run(addr string) error {
+	server := &http.Server{
+		Addr:    addr,
+		Handler: n,
+	}
+
+	return server.ListenAndServe()
 }

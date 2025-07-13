@@ -16,11 +16,15 @@ type Context struct {
 	nexora   *Nexora             // A reference to the Nexora instance that created this context, allowing access to shared resources and settings.
 }
 
-// NewContext creates a new Context instance for handling HTTP requests.
-func NewContext(nexora *Nexora) *Context {
+func newContext(nexora *Nexora) *Context {
 	return &Context{
 		nexora: nexora,
 	}
+}
+
+// Nexora returns the Nexora instance for the current request.
+func (c *Context) Nexora() *Nexora {
+	return c.nexora
 }
 
 // Init initializes the context with the given request and response writer.
@@ -67,4 +71,12 @@ func (c *Context) Param(name string) string {
 // Abort stops the execution of any further handlers in the context's handlers slice.
 func (c *Context) Abort() {
 	c.index = len(c.handlers) // Skip all remaining handlers
+}
+
+func (c *Context) SendString(s string) error {
+	_, err := c.writer.Write([]byte(s))
+	if err != nil {
+		return err
+	}
+	return nil
 }
