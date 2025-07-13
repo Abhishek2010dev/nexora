@@ -177,7 +177,7 @@ func (n *node) findEndIndexAndValues(path string) (int, []string) {
 
 func (n *node) setHandler(handlers []Handler, fullPath string) (*node, error) {
 	if n.handlers != nil || n.tsr {
-		return nil, newRadixError(errSetHandler, fullPath)
+		return n, newRadixError(errSetHandler, fullPath)
 	}
 
 	n.handlers = handlers
