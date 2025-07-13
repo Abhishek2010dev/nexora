@@ -20,6 +20,10 @@ func newRouteGroup(nexora *Nexora, prefix string, handlers []Handler) *RouteGrou
 	}
 }
 
+func (g *RouteGroup) Use(handlers ...Handler) {
+	g.handlers = append(g.handlers, handlers...)
+}
+
 // Get registers a new GET route with the specified path and handlers.
 func (g *RouteGroup) Get(path string, handler ...Handler) *Route {
 	return g.add(MethodGet, path, handler)

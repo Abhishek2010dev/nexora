@@ -80,3 +80,7 @@ func (c *Context) SendString(s string) error {
 	}
 	return nil
 }
+
+func (c *Context) Method() string {
+	return c.request.Method
+}
