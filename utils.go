@@ -9,7 +9,7 @@ import (
 	"github.com/valyala/bytebufferpool"
 )
 
-func panicf(s string, args ...interface{}) {
+func panicf(s string, args ...any) {
 	panic(fmt.Sprintf(s, args...))
 }
 
