@@ -24,6 +24,18 @@ func (g *RouteGroup) Use(handlers ...Handler) {
 	g.handlers = append(g.handlers, handlers...)
 }
 
+// Group creates a RouteGroup with the given route path prefix and handlers.
+// The new group will combine the existing path prefix with the new one.
+// If no handler is provided, the new group will inherit the handlers registered
+// with the current group.
+func (g *RouteGroup) Group(prefix string, handlers ...Handler) *RouteGroup {
+	if len(handlers) == 0 {
+		handlers = make([]Handler, len(g.handlers))
+		copy(handlers, g.handlers)
+	}
+	return newRouteGroup(g.nexora, g.prefix+prefix, handlers)
+}
+
 // Get registers a new GET route with the specified path and handlers.
 func (g *RouteGroup) Get(path string, handler ...Handler) *Route {
 	return g.add(MethodGet, path, handler)
