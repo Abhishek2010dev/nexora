@@ -72,11 +72,42 @@ func (c *Context) Params() map[string]string {
 	return c.params
 }
 
-// Param returns the value of a specific route parameter by name.
+// Param returns the value of a route parameter by name.
 //
-// If the parameter does not exist, it returns an empty string.
-func (c *Context) Param(name string) string {
-	return c.params[name]
+// If the parameter is not present and a defaultValue is provided,
+// the first element of defaultValue is returned instead.
+//
+// Example usage:
+//
+//	id := ctx.Param("id")              // returns "" if not found
+//	id := ctx.Param("id", "default")   // returns "default" if not found.
+func (c *Context) Param(name string, defaultValue ...string) string {
+	if value, ok := c.params[name]; ok {
+		return value
+	}
+	if 0 < len(defaultValue) {
+		return defaultValue[0]
+	}
+	return ""
+}
+
+// ParamExists returns the value of a route parameter and a boolean indicating
+// whether the parameter was present in the route.
+//
+// This is useful when you need to distinguish between a parameter that is
+// missing and one that is present with an empty value.
+//
+// Example usage:
+//
+//	id, ok := ctx.ParamExists("id")
+//	if ok {
+//	    // Use id
+//	} else {
+//	    // Handle missing parameter
+//	}
+func (c *Context) ParamExists(name string) (string, bool) {
+	val, ok := c.params[name]
+	return val, ok
 }
 
 // SendString sends a plain text response with the given string content.

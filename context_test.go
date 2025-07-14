@@ -76,3 +76,63 @@ func TestContext_Next(t *testing.T) {
 		t.Errorf("handlers called in wrong order: got %v, want %v", called, want)
 	}
 }
+
+func TestContext_Param(t *testing.T) {
+	req := httptest.NewRequest("GET", "/users/42", nil)
+	rec := httptest.NewRecorder()
+
+	ctx := newContext(nil)
+	ctx.init(req, rec)
+
+	// Simulate route parameters
+	ctx.params = map[string]string{
+		"id":   "42",
+		"name": "",
+	}
+
+	// Test existing param
+	id := ctx.Param("id")
+	if id != "42" {
+		t.Errorf("Param id = %q; want %q", id, "42")
+	}
+
+	// Test missing param with default
+	role := ctx.Param("role", "admin")
+	if role != "admin" {
+		t.Errorf("Param role with default = %q; want %q", role, "admin")
+	}
+
+	// Test missing param without default
+	role = ctx.Param("role")
+	if role != "" {
+		t.Errorf("Param role without default = %q; want empty string", role)
+	}
+
+	// Test empty param (should not use default)
+	name := ctx.Param("name", "guest")
+	if name != "" {
+		t.Errorf("Param name = %q; want empty string", name)
+	}
+}
+
+func TestContext_ParamExists(t *testing.T) {
+	req := httptest.NewRequest("GET", "/items/5", nil)
+	rec := httptest.NewRecorder()
+
+	ctx := newContext(nil)
+	ctx.init(req, rec)
+
+	ctx.params = map[string]string{
+		"item": "5",
+	}
+
+	val, ok := ctx.ParamExists("item")
+	if !ok || val != "5" {
+		t.Errorf("ParamExists(item) = (%q, %v); want (%q, true)", val, ok, "5")
+	}
+
+	val, ok = ctx.ParamExists("missing")
+	if ok || val != "" {
+		t.Errorf("ParamExists(missing) = (%q, %v); want (\"\", false)", val, ok)
+	}
+}
