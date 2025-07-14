@@ -8,12 +8,12 @@ import (
 // It holds the request, response writer, URL parameters, and a stack of handlers.
 // It provides methods to access these values and to control the flow of request handling.
 type Context struct {
-	params   map[string]string   // URL parameters extracted from the request path.
-	request  *http.Request       // The original HTTP request object.
-	writer   http.ResponseWriter // The response writer to send the response back to the client.
-	index    int                 // The current index in the handlers slice, used to track which handler is currently being executed.
-	handlers []Handler           // A slice of handlers to be executed in order for this request.
-	nexora   *Nexora             // A reference to the Nexora instance that created this context, allowing access to shared resources and settings.
+	params   map[string]string // URL parameters extracted from the request path.
+	request  *http.Request     // The original HTTP request object.
+	writer   *ResponseWriter   // The response writer to send the response back to the client.
+	index    int               // The current index in the handlers slice, used to track which handler is currently being executed.
+	handlers []Handler         // A slice of handlers to be executed in order for this request.
+	nexora   *Nexora           // A reference to the Nexora instance that created this context, allowing access to shared resources and settings.
 }
 
 func newContext(nexora *Nexora) *Context {
@@ -30,7 +30,7 @@ func (c *Context) Nexora() *Nexora {
 // Init initializes the context with the given request and response writer.
 func (c *Context) init(request *http.Request, writer http.ResponseWriter) {
 	c.request = request
-	c.writer = writer
+	c.writer = NewResponseWriter(writer)
 	c.index = -1
 }
 
@@ -54,7 +54,7 @@ func (c *Context) Request() *http.Request {
 }
 
 // ResponseWriter returns the response writer associated with this context.
-func (c *Context) ResponseWriter() http.ResponseWriter {
+func (c *Context) ResponseWriter() *ResponseWriter {
 	return c.writer
 }
 
@@ -83,4 +83,8 @@ func (c *Context) SendString(s string) error {
 
 func (c *Context) Method() string {
 	return c.request.Method
+}
+
+func (c *Context) Headers() map[string][]string {
+	return c.request.Header
 }
