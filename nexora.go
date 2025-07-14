@@ -361,7 +361,7 @@ func (n *Nexora) handleError(c *Context, err error) {
 		return
 	}
 
-	if httpErr, ok := err.(*HttpError); ok {
+	if httpErr, ok := err.(*HTTPError); ok {
 		http.Error(c.ResponseWriter(), httpErr.Message, httpErr.StatusCode)
 	} else {
 		// NOTE: Replace it later with nexora custom logger
