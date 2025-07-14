@@ -1,6 +1,7 @@
 package nexora
 
 import (
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -93,6 +94,8 @@ type Nexora struct {
 	// The handler can be used to keep your server from crashing because of
 	// unrecovered panics.
 	PanicHandler func(c *Context, v any) error
+
+	ErrorHandler func(c *Context, err error) error
 
 	pool *sync.Pool // Pool for Context objects
 }
@@ -348,15 +351,23 @@ func (n *Nexora) tryRedirect(w http.ResponseWriter, r *http.Request, tree *tree,
 	return false
 }
 
-// handleError handles errors that occur during request processing.
-func (r *Nexora) handleError(c *Context, err error) {
-	// if httpError, ok := err.(HTTPError); ok {
-	// 	http.Error(c.ResponseWriter(), httpError.Error(), httpError.StatusCode())
-	// } else {
-	// 	http.Error(c.ResponseWriter(), err.Error(), http.StatusInternalServerError)
-	// }
+func (n *Nexora) handleError(c *Context, err error) {
+	if n.ErrorHandler != nil {
+		if handlerErr := n.ErrorHandler(c, err); handlerErr != nil {
+			// NOTE: Replace it later with nexora custom logger
+			log.Printf("ErrorHandler failed: %v", handlerErr)
+			http.Error(c.ResponseWriter(), "Internal Server Error", http.StatusInternalServerError)
+		}
+		return
+	}
 
-	http.Error(c.ResponseWriter(), err.Error(), http.StatusInternalServerError)
+	if httpErr, ok := err.(*HttpError); ok {
+		http.Error(c.ResponseWriter(), httpErr.Message, httpErr.StatusCode)
+	} else {
+		// NOTE: Replace it later with nexora custom logger
+		log.Printf("Unhandled error: %v", err)
+		http.Error(c.ResponseWriter(), "Internal Server Error", http.StatusInternalServerError)
+	}
 }
 
 // ServeHTTP implements the http.Handler interface for Nexora.
