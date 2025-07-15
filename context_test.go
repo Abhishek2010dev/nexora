@@ -136,3 +136,92 @@ func TestContext_ParamExists(t *testing.T) {
 		t.Errorf("ParamExists(missing) = (%q, %v); want (\"\", false)", val, ok)
 	}
 }
+
+func TestContext_Queries(t *testing.T) {
+	req := httptest.NewRequest("GET", "/search?q=golang&tag=web&tag=fast&empty=", nil)
+	rec := httptest.NewRecorder()
+
+	ctx := newContext(nil)
+	ctx.init(req, rec)
+
+	values := ctx.Queries()
+	if values.Get("q") != "golang" {
+		t.Errorf("Queries()[q] = %q; want %q", values.Get("q"), "golang")
+	}
+	if got := values["tag"]; len(got) != 2 || got[0] != "web" || got[1] != "fast" {
+		t.Errorf("Queries()[tag] = %v; want [web fast]", got)
+	}
+	if _, ok := values["empty"]; !ok {
+		t.Errorf("Queries()[empty] missing; want present")
+	}
+}
+
+func TestContext_QueryArray(t *testing.T) {
+	req := httptest.NewRequest("GET", "/search?tag=web&tag=fast", nil)
+	rec := httptest.NewRecorder()
+
+	ctx := newContext(nil)
+	ctx.init(req, rec)
+
+	arr := ctx.QueryArray("tag")
+	if len(arr) != 2 || arr[0] != "web" || arr[1] != "fast" {
+		t.Errorf("QueryArray(tag) = %v; want [web fast]", arr)
+	}
+
+	arr = ctx.QueryArray("missing")
+	if arr != nil && len(arr) != 0 {
+		t.Errorf("QueryArray(missing) = %v; want nil or []", arr)
+	}
+}
+
+func TestContext_Query(t *testing.T) {
+	req := httptest.NewRequest("GET", "/search?q=golang", nil)
+	rec := httptest.NewRecorder()
+
+	ctx := newContext(nil)
+	ctx.init(req, rec)
+
+	// existing key
+	val := ctx.Query("q")
+	if val != "golang" {
+		t.Errorf("Query(q) = %q; want %q", val, "golang")
+	}
+
+	// missing key with default
+	val = ctx.Query("page", "1")
+	if val != "1" {
+		t.Errorf("Query(page,1) = %q; want %q", val, "1")
+	}
+
+	// missing key without default
+	val = ctx.Query("missing")
+	if val != "" {
+		t.Errorf("Query(missing) = %q; want \"\"", val)
+	}
+}
+
+func TestContext_QueryExists(t *testing.T) {
+	req := httptest.NewRequest("GET", "/search?q=golang&empty=", nil)
+	rec := httptest.NewRecorder()
+
+	ctx := newContext(nil)
+	ctx.init(req, rec)
+
+	// key exists with value
+	val, ok := ctx.QueryExists("q")
+	if !ok || val != "golang" {
+		t.Errorf("QueryExists(q) = (%q, %v); want (%q, true)", val, ok, "golang")
+	}
+
+	// key exists with empty value
+	val, ok = ctx.QueryExists("empty")
+	if !ok || val != "" {
+		t.Errorf("QueryExists(empty) = (%q, %v); want (\"\", true)", val, ok)
+	}
+
+	// key does not exist
+	val, ok = ctx.QueryExists("missing")
+	if ok || val != "" {
+		t.Errorf("QueryExists(missing) = (%q, %v); want (\"\", false)", val, ok)
+	}
+}
