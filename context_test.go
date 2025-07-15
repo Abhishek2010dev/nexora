@@ -367,3 +367,48 @@ func TestContext_SetContentType(t *testing.T) {
 		t.Errorf("expected Content-Type to be %q, got %q", "application/json", got)
 	}
 }
+
+func TestContext_RealIP(t *testing.T) {
+	// --- Case 1: With X-Forwarded-For header ---
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Header.Set("X-Forwarded-For", "203.0.113.1, 70.41.3.18, 150.172.238.178")
+	rec := httptest.NewRecorder()
+
+	ctx := newContext(nil)
+	ctx.init(req, rec)
+
+	got := ctx.RealIP()
+	want := "203.0.113.1" // first entry
+	if got != want {
+		t.Errorf("RealIP() with X-Forwarded-For = %q, want %q", got, want)
+	}
+
+	// --- Case 2: Without X-Forwarded-For header ---
+	req2 := httptest.NewRequest("GET", "/", nil)
+	req2.RemoteAddr = "192.168.1.100:12345"
+	rec2 := httptest.NewRecorder()
+
+	ctx2 := newContext(nil)
+	ctx2.init(req2, rec2)
+
+	got2 := ctx2.RealIP()
+	want2 := "192.168.1.100" // comes from c.IP()
+	if got2 != want2 {
+		t.Errorf("RealIP() without header = %q, want %q", got2, want2)
+	}
+}
+
+func TestContext_Body(t *testing.T) {
+	bodyContent := `{"message":"hello"}`
+
+	req := httptest.NewRequest("POST", "/submit", strings.NewReader(bodyContent))
+	rec := httptest.NewRecorder()
+
+	ctx := newContext(nil)
+	ctx.init(req, rec)
+
+	got := ctx.Body()
+	if string(got) != bodyContent {
+		t.Errorf("Body() = %q, want %q", string(got), bodyContent)
+	}
+}

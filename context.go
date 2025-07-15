@@ -1,9 +1,11 @@
 package nexora
 
 import (
+	"io"
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // Context represents the context of a single HTTP request in the Nexora framework.
@@ -328,5 +330,32 @@ func (c *Context) SendHeader(key string, value string) error {
 // Parameters:
 //   - ct: The content type string (e.g., "application/json").
 func (c *Context) SetContentType(ct string) {
-	c.writer.Header().Set("Content-Type", ct)
+	c.writer.Header().Set(HeaderContentType, ct)
+}
+
+// RealIP returns the client's real IP address, considering X-Forwarded-For.
+func (c *Context) RealIP() string {
+	xForwardedFor := c.GetHeader(HeaderForwardedFor)
+	if xForwardedFor != "" {
+		parts := strings.Split(xForwardedFor, ",")
+		if len(parts) > 0 {
+			return strings.TrimSpace(parts[0])
+		}
+	}
+	return c.IP()
+}
+
+// Body returns the raw request body as []byte.
+// It reads and caches the body so multiple calls won't re-read the stream.
+func (c *Context) Body() []byte {
+	data, err := io.ReadAll(c.request.Body)
+	if err != nil {
+		return nil
+	}
+	return data
+}
+
+// IsAJAX returns true if the request was made via AJAX.
+func (c *Context) IsAJAX() bool {
+	return c.GetHeader(HeaderXRequestedWith) == "XMLHttpRequest"
 }
