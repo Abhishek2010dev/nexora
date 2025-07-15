@@ -8,6 +8,8 @@
 package nexora
 
 import (
+	"fmt"
+	"regexp"
 	"strings"
 
 	gstrings "github.com/savsgio/gotils/strings"
@@ -87,4 +89,60 @@ walk:
 			}
 		}
 	}
+}
+
+var constraintsType = map[string]string{
+	"int":      `\d+`,                                              // 123
+	"string":   `[^/]+`,                                            // anything except "/"
+	"slug":     `[A-Za-z0-9_-]+`,                                   // URL-friendly
+	"uuid":     `[0-9a-fA-F-]{36}`,                                 // UUID v4 style
+	"alpha":    `[A-Za-z]+`,                                        // letters only
+	"alnum":    `[A-Za-z0-9]+`,                                     // letters and digits
+	"float":    `\d+\.\d+`,                                         // simple floating-point
+	"hex":      `[0-9a-fA-F]+`,                                     // hex digits
+	"year":     `\d{4}`,                                            // 4-digit year
+	"month":    `(0[1-9]|1[0-2])`,                                  // 01–12
+	"day":      `(0[1-9]|[12][0-9]|3[01])`,                         // 01–31
+	"bool":     `(true|false|0|1)`,                                 // booleans
+	"username": `[A-Za-z0-9_]{3,16}`,                               // 3–16 chars
+	"email":    `[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}`, // basic email
+	"phone":    `\+?[0-9]{7,15}`,                                   // simple international phone
+}
+
+var paramRegex = regexp.MustCompile(`{(\w+)(?::([^}]+))?\}`)
+
+func parseConstraintsRoute(route string) string {
+	sagments := strings.Split(route, "/")
+	out := make([]string, 0, len(sagments))
+
+	for _, seg := range sagments {
+		if seg == "" {
+			continue
+		}
+
+		newSeg := paramRegex.ReplaceAllStringFunc(seg, func(s string) string {
+			matchs := paramRegex.FindStringSubmatch(s)
+			key := matchs[1]
+			typ := matchs[2]
+
+			// If no type, leave as-is
+			if typ == "" {
+				return fmt.Sprintf("{%s}", key)
+			}
+
+			// If it's already a regex (e.g. starts with \ or [), keep it
+			if strings.ContainsAny(typ, `\[]()^$`) {
+				return fmt.Sprintf("{%s:%s}", key, typ)
+			}
+
+			regex, ok := constraintsType[typ]
+			if !ok {
+				return s // fallback: don't touch
+			}
+			return fmt.Sprintf("{%s:%s}", key, regex)
+		})
+
+		out = append(out, newSeg)
+	}
+	return "/" + strings.Join(out, "/")
 }

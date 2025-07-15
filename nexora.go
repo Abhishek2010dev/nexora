@@ -184,6 +184,8 @@ func (n *Nexora) Handle(method, path string, handlers ...Handler) {
 		validatePath(path)
 	}
 
+	path = parseConstraintsRoute(path)
+
 	n.registeredPaths[method] = append(n.registeredPaths[method], path)
 
 	methodIndex := n.methodIndexOf(method)

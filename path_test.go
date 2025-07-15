@@ -88,3 +88,42 @@ func Test_cleanPath(t *testing.T) {
 		}
 	}
 }
+
+func TestParseConstraintsRoute(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		// simple
+		{"/user/{id:int}", "/user/{id:\\d+}"},
+		{"/user/{name:string}", "/user/{name:[^/]+}"},
+		{"/user/{slug:slug}", "/user/{slug:[A-Za-z0-9_-]+}"},
+		{"/user/{uuid:uuid}", "/user/{uuid:[0-9a-fA-F-]{36}}"},
+
+		// unknown type → untouched
+		{"/user/{foo:unknown}", "/user/{foo:unknown}"},
+
+		// already regex
+		{"/user/{id:[0-9]+}", "/user/{id:[0-9]+}"},
+		{"/user/{id:\\d+}", "/user/{id:\\d+}"},
+
+		// no type
+		{"/user/{id}", "/user/{id}"},
+
+		// multiple params in one segment
+		{"/file/{name:string}.{ext:string}", "/file/{name:[^/]+}.{ext:[^/]+}"},
+		{"/mix/{id:int}-{slug:slug}", "/mix/{id:\\d+}-{slug:[A-Za-z0-9_-]+}"},
+
+		// mixed segments
+		{"/a/{x:int}/b/{y}/c/{z:[A-Z]+}", "/a/{x:\\d+}/b/{y}/c/{z:[A-Z]+}"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.in, func(t *testing.T) {
+			got := parseConstraintsRoute(tt.in)
+			if got != tt.want {
+				t.Errorf("parseConstraintsRoute(%q) = %q; want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
