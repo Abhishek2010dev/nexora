@@ -1,6 +1,7 @@
 package nexora
 
 import (
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -223,5 +224,146 @@ func TestContext_QueryExists(t *testing.T) {
 	val, ok = ctx.QueryExists("missing")
 	if ok || val != "" {
 		t.Errorf("QueryExists(missing) = (%q, %v); want (\"\", false)", val, ok)
+	}
+}
+
+func TestContext_Port_HTTP(t *testing.T) {
+	req := httptest.NewRequest("GET", "http://example.com:8080/foo", nil)
+	rec := httptest.NewRecorder()
+
+	ctx := newContext(nil)
+	ctx.init(req, rec)
+
+	if got := ctx.Port(); got != "8080" {
+		t.Errorf("Port() = %q, want %q", got, "8080")
+	}
+}
+
+func TestContext_Port_Defaults(t *testing.T) {
+	req := httptest.NewRequest("GET", "http://example.com/foo", nil)
+	rec := httptest.NewRecorder()
+
+	ctx := newContext(nil)
+	ctx.init(req, rec)
+
+	// No port in Host should default to 80 (non-TLS)
+	if got := ctx.Port(); got != "80" {
+		t.Errorf("Port() = %q, want %q", got, "80")
+	}
+}
+
+func TestContext_RemotePort(t *testing.T) {
+	req := httptest.NewRequest("GET", "http://example.com/foo", nil)
+	rec := httptest.NewRecorder()
+
+	// Set RemoteAddr manually to simulate client port
+	req.RemoteAddr = net.JoinHostPort("127.0.0.1", "56789")
+
+	ctx := newContext(nil)
+	ctx.init(req, rec)
+
+	if got := ctx.RemotePort(); got != "56789" {
+		t.Errorf("RemotePort() = %q, want %q", got, "56789")
+	}
+}
+
+func TestContext_IP(t *testing.T) {
+	req := httptest.NewRequest("GET", "http://example.com/foo", nil)
+	rec := httptest.NewRecorder()
+
+	req.RemoteAddr = net.JoinHostPort("192.168.1.50", "45678")
+
+	ctx := newContext(nil)
+	ctx.init(req, rec)
+
+	if got := ctx.IP(); got != "192.168.1.50" {
+		t.Errorf("IP() = %q, want %q", got, "192.168.1.50")
+	}
+}
+
+func TestContext_Headers_GetSetAddDel(t *testing.T) {
+	req := httptest.NewRequest("GET", "http://example.com/foo", nil)
+	rec := httptest.NewRecorder()
+	ctx := newContext(nil)
+	ctx.init(req, rec)
+
+	// Test setting header
+	ctx.SetHeader("X-Test", "value1")
+	if got := rec.Header().Get("X-Test"); got != "value1" {
+		t.Errorf("SetHeader() = %q, want %q", got, "value1")
+	}
+
+	// Test adding header
+	ctx.AddHeader("X-Test", "value2")
+	values := rec.Header()["X-Test"]
+	if len(values) != 2 || values[0] != "value1" || values[1] != "value2" {
+		t.Errorf("AddHeader() = %v, want [value1 value2]", values)
+	}
+
+	// Test deleting header
+	ctx.DelHeader("X-Test")
+	if got := rec.Header().Get("X-Test"); got != "" {
+		t.Errorf("DelHeader() = %q, want empty", got)
+	}
+}
+
+func TestContext_GetHeader(t *testing.T) {
+	req := httptest.NewRequest("GET", "http://example.com/foo", nil)
+	req.Header.Set("X-Custom", "abc123")
+	rec := httptest.NewRecorder()
+
+	ctx := newContext(nil)
+	ctx.init(req, rec)
+
+	if got := ctx.GetHeader("X-Custom"); got != "abc123" {
+		t.Errorf("GetHeader() = %q, want %q", got, "abc123")
+	}
+}
+
+func TestContext_HeadersMap(t *testing.T) {
+	req := httptest.NewRequest("GET", "http://example.com/foo", nil)
+	req.Header.Set("X-One", "1")
+	req.Header.Set("X-Two", "2")
+	rec := httptest.NewRecorder()
+
+	ctx := newContext(nil)
+	ctx.init(req, rec)
+
+	h := ctx.Headers()
+	if h.Get("X-One") != "1" || h.Get("X-Two") != "2" {
+		t.Errorf("Headers() map = %v, missing expected values", h)
+	}
+}
+
+func TestContext_SendHeader(t *testing.T) {
+	req := httptest.NewRequest("GET", "/", nil)
+	rec := httptest.NewRecorder()
+
+	ctx := newContext(nil)
+	ctx.init(req, rec)
+
+	err := ctx.SendHeader("X-Custom-Header", "my-value")
+	if err != nil {
+		t.Errorf("SendHeader returned unexpected error: %v", err)
+	}
+
+	// verify header is set
+	if got := rec.Header().Get("X-Custom-Header"); got != "my-value" {
+		t.Errorf("expected X-Custom-Header to be %q, got %q", "my-value", got)
+	}
+}
+
+func TestContext_SetContentType(t *testing.T) {
+	req := httptest.NewRequest("GET", "/", nil)
+	rec := httptest.NewRecorder()
+
+	ctx := newContext(nil)
+	ctx.init(req, rec)
+
+	ctx.SetContentType("application/json")
+
+	// verify Content-Type is set
+	if got := rec.Header().Get("Content-Type"); got != "application/json" {
+		t.Errorf("expected Content-Type to be %q, got %q", "application/json", got)
 	}
 }

@@ -1,6 +1,7 @@
 package nexora
 
 import (
+	"net"
 	"net/http"
 	"net/url"
 )
@@ -142,11 +143,6 @@ func (c *Context) Method() string {
 	return c.request.Method
 }
 
-// Headers returns the request headers as a map.
-func (c *Context) Headers() map[string][]string {
-	return c.request.Header
-}
-
 // Path returns the URL path of the incoming request.
 func (c *Context) Path() string {
 	return c.request.URL.Path
@@ -230,4 +226,107 @@ func (c *Context) QueryExists(key string) (string, bool) {
 	}
 	// key not found
 	return "", false
+}
+
+// Port returns the server port on which the request was received.
+// It parses the Host field of the request to extract the port.
+// If no explicit port is present, it falls back to 443 for HTTPS or 80 for HTTP.
+func (c *Context) Port() string {
+	_, port, err := net.SplitHostPort(c.request.Host)
+	if err != nil {
+		if c.request.TLS != nil {
+			return "443"
+		}
+		return "80"
+	}
+	return port
+}
+
+// RemotePort returns the remote TCP port from which the client
+// is connected. If the remote address cannot be parsed, it returns an empty string.
+func (c *Context) RemotePort() string {
+	_, port, err := net.SplitHostPort(c.request.RemoteAddr)
+	if err != nil {
+		return ""
+	}
+	return port
+}
+
+// IP returns the remote IP address of the client that made the request.
+// If the remote address cannot be parsed, it returns an empty string.
+func (c *Context) IP() string {
+	host, _, err := net.SplitHostPort(c.request.RemoteAddr)
+	if err != nil {
+		return ""
+	}
+	return host
+}
+
+// Headers returns all the HTTP request headers as an http.Header map.
+// The returned map can be iterated or queried for multiple values.
+func (c *Context) Headers() http.Header {
+	return c.request.Header
+}
+
+// GetHeader retrieves the value of the specified request header field.
+// If the header is not present, it returns an empty string.
+func (c *Context) GetHeader(key string) string {
+	return c.request.Header.Get(key)
+}
+
+// SetHeader sets a header field on the HTTP response.
+// It replaces any existing values associated with the key.
+func (c *Context) SetHeader(key, value string) {
+	c.writer.Header().Set(key, value)
+}
+
+// DelHeader deletes the specified header field from the HTTP response.
+// If the header is not present, this is a no-op.
+func (c *Context) DelHeader(key string) {
+	c.writer.Header().Del(key)
+}
+
+// AddHeader adds the specified value to the given header field in the HTTP response.
+// It appends to any existing values associated with the key.
+func (c *Context) AddHeader(key, value string) {
+	c.writer.Header().Add(key, value)
+}
+
+// SendHeader sets an HTTP header key-value pair on the response.
+//
+// This method is **sugar syntax**: it always returns `error` (currently always `nil`),
+// which matches the typical handler signature in this framework
+// (e.g., `func(c *Context) error`).
+// That means you can directly return it from your handler without extra wrapping.
+//
+// Example:
+//
+//	func H(c *nexora.Context) error {
+//	    // Set a custom header and directly return
+//	    return c.SendHeader("X-Custom-Header", "my-value")
+//	}
+//
+// Parameters:
+//   - key:   The header name (e.g., "X-Custom-Header").
+//   - value: The header value.
+//
+// Returns:
+//   - error: Always returns nil (reserved for future use).
+func (c *Context) SendHeader(key string, value string) error {
+	c.writer.Header().Set(key, value)
+	return nil
+}
+
+// SetContentType sets the "Content-Type" header on the response.
+// This defines the media type of the response body.
+//
+// Example:
+//
+//	c.SetContentType("application/json")
+//	c.SetContentType("text/html; charset=utf-8")
+//
+// Parameters:
+//   - ct: The content type string (e.g., "application/json").
+func (c *Context) SetContentType(ct string) {
+	c.writer.Header().Set("Content-Type", ct)
 }
