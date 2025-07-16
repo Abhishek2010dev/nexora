@@ -120,6 +120,16 @@ var constraintsType = map[string]string{
 	"alnum":  `[A-Za-z0-9]+`,
 	"bool":   `(true|false|0|1)`,
 	"path":   `.*`,
+
+	// other
+	"email":    `[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}`,
+	"ip":       `(?:\d{1,3}\.){3}\d{1,3}`,
+	"ipv6":     `(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}`, // basic full IPv6 match
+	"hostname": `[a-zA-Z0-9.-]+`,
+	"date":     `\d{4}-\d{2}-\d{2}`,
+	"time":     `\d{2}:\d{2}(?::\d{2})?`,
+	"hex":      `[0-9a-fA-F]+`,
+	"base64":   `[A-Za-z0-9+/=]+`,
 }
 
 // paramRegex matches path parameters of the form:
