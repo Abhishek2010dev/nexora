@@ -1,6 +1,7 @@
 package nexora
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"strings"
@@ -37,6 +38,9 @@ type Nexora struct {
 	namedRoutes        map[string]*Route // Maps route names to paths
 
 	RouteGroup // Default route group for new routes
+
+	JsonEncoder EncoderFunc // This will be used to encode json payload
+	JsonDecoder DecoderFunc // This will be used to decode json playload
 
 	// Enables automatic redirection if the current route can't be matched but a
 	// handler for the path with (without) the trailing slash exists.
@@ -111,6 +115,8 @@ func New() *Nexora {
 		HandleMethodNotAllowed: true,
 		HandleOPTIONS:          true,
 		namedRoutes:            make(map[string]*Route),
+		JsonEncoder:            json.Marshal,
+		JsonDecoder:            json.Unmarshal,
 	}
 	nexora.RouteGroup = *newRouteGroup(nexora, "", make([]Handler, 0))
 	nexora.pool = &sync.Pool{

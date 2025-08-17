@@ -412,3 +412,43 @@ func TestContext_Body(t *testing.T) {
 		t.Errorf("Body() = %q, want %q", string(got), bodyContent)
 	}
 }
+
+func TestContext_SendBytes_SendByte(t *testing.T) {
+	// Create a test HTTP request and response recorder
+	req := httptest.NewRequest("GET", "/bytes", nil)
+	rec := httptest.NewRecorder()
+
+	ctx := newContext(nil)
+	ctx.init(req, rec)
+
+	// Test SendBytes
+	data := []byte{0x01, 0x02, 0x03, 0x04}
+	if err := ctx.SendBytes(data); err != nil {
+		t.Fatalf("SendBytes failed: %v", err)
+	}
+
+	got := rec.Body.Bytes()
+	if len(got) != len(data) {
+		t.Fatalf("SendBytes wrote wrong length: got %d, want %d", len(got), len(data))
+	}
+	for i := range data {
+		if got[i] != data[i] {
+			t.Errorf("SendBytes byte %d = %v; want %v", i, got[i], data[i])
+		}
+	}
+
+	// Reset recorder for SendByte test
+	rec = httptest.NewRecorder()
+	ctx.init(req, rec)
+
+	// Test SendByte (single byte)
+	single := byte(0x7F)
+	if err := ctx.SendByte([]byte{single}); err != nil {
+		t.Fatalf("SendByte failed: %v", err)
+	}
+
+	gotSingle := rec.Body.Bytes()
+	if len(gotSingle) != 1 || gotSingle[0] != single {
+		t.Errorf("SendByte wrote wrong value: got %v, want %v", gotSingle, []byte{single})
+	}
+}

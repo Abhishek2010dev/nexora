@@ -1,12 +1,16 @@
 package nexora
 
 import (
+	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
 )
+
+const ContentTypeOctetStream = "application/octet-stream"
 
 // Context represents the context of a single HTTP request in the Nexora framework.
 //
@@ -358,4 +362,57 @@ func (c *Context) Body() []byte {
 // IsAJAX returns true if the request was made via AJAX.
 func (c *Context) IsAJAX() bool {
 	return c.GetHeader(HeaderXRequestedWith) == "XMLHttpRequest"
+}
+
+func (c *Context) BindJson(v any) error {
+	err := c.nexora.JsonDecoder(c.Body(), v)
+	if err == nil {
+		return nil
+	}
+
+	var msg string
+	switch e := err.(type) {
+	case *json.SyntaxError:
+		msg = fmt.Sprintf("Malformed JSON at byte offset %d", e.Offset)
+	case *json.UnmarshalTypeError:
+		msg = fmt.Sprintf("Wrong type for field '%s', expected %s at byte offset %d", e.Field, e.Type, e.Offset)
+	default:
+		msg = err.Error()
+	}
+
+	return NewHTTPError(StatusBadRequest, msg)
+}
+
+// SendBytes sets the Content-Type to "application/octet-stream" and writes
+// the given byte slice to the HTTP response. Returns an HTTP error if writing fails
+// or not all bytes are sent.
+func (c *Context) SendBytes(b []byte) error {
+	c.SetContentType(ContentTypeOctetStream)
+	return c.setBody(b)
+}
+
+// SendByte writes the given byte slice to the HTTP response without
+// modifying the Content-Type. Returns an HTTP error if writing fails
+// or not all bytes are sent.
+//
+// For sending a single byte, consider using SendBytes([]byte{b}).
+func (c *Context) SendByte(b []byte) error {
+	return c.setBody(b)
+}
+
+// setBody is an internal helper that writes the provided byte slice
+// to the HTTP response. It returns an HTTP error if writing fails
+// or if the number of bytes written does not match the slice length.
+//
+// This function is private and should not be called directly outside
+// the Context implementation.
+func (c *Context) setBody(b []byte) error {
+	n, err := c.ResponseWriter().Write(b)
+	if err != nil {
+		return NewHTTPError(StatusInternalServerError, fmt.Sprintf("failed to send bytes: %v", err))
+	}
+	if n != len(b) {
+		return NewHTTPError(StatusInternalServerError, "failed to send complete bytes")
+	}
+	return nil
 }

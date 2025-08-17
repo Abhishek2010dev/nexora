@@ -4,4 +4,4 @@ package nexora
 type EncoderFunc func(v any) ([]byte, error)
 
 // DecoderFunc defines how raw bytes are converted back into a Go value.
-type DecoderFunc func([]byte) (any, error)
+type DecoderFunc func(data []byte, v any) error
