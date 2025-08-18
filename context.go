@@ -365,20 +365,7 @@ func (c *Context) IsAJAX() bool {
 	return c.GetHeader(HeaderXRequestedWith) == "XMLHttpRequest"
 }
 
-func CheckContentType(ct, prefix string) bool {
-	if len(ct) < len(prefix) {
-		return false
-	}
-	for i := 0; i < len(prefix); i++ {
-		if ct[i] != prefix[i] {
-			return false
-		}
-	}
-	return true
-}
-
 // BindJson parses the request body as JSON into v.
-// Returns an error if Content-Type is not JSON or if decoding fails.
 func (c *Context) BindJson(v any) error {
 	err := c.nexora.JsonDecoder(c.Body(), v)
 	if err == nil {
@@ -420,6 +407,26 @@ func (c *Context) SendJson(v any) error {
 	}
 	c.SetContentType(ContentTypeJson)
 	return c.setBody(body)
+}
+
+// SendSecureJson encodes the given value as JSON and writes it to the response
+// with the "application/json" Content-Type header. The output is prefixed with
+// c.nexora.secureJsonPrefix (e.g., "while(1);") to mitigate JSON hijacking
+// attacks when serving untrusted clients.
+//
+// If JSON encoding fails or writing to the response fails, an HTTP error is
+// returned.
+func (c *Context) SendSecureJson(v any) error {
+	body, err := c.nexora.JsonEncoder(v)
+	if err != nil {
+		return NewHTTPError(StatusInternalServerError,
+			fmt.Sprintf("failed to encode JSON: %v", err))
+	}
+
+	c.SetContentType(ContentTypeJson)
+
+	full := append(c.nexora.secureJsonPrefix, body...)
+	return c.setBody(full)
 }
 
 // SendBytes sets the Content-Type to "application/octet-stream" and writes

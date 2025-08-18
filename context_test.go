@@ -487,20 +487,6 @@ func TestContext_BindJson_SendJson(t *testing.T) {
 		t.Errorf("BindJson parsed wrong values: %+v", p)
 	}
 
-	// --- Test BindJson with wrong Content-Type ---
-	req2 := httptest.NewRequest("POST", "/json", strings.NewReader(reqBody))
-	req2.Header.Set("Content-Type", "text/plain")
-	rec2 := httptest.NewRecorder()
-
-	ctx2 := newContext(dummyNexora)
-	ctx2.init(req2, rec2)
-
-	var p2 payload
-	err := ctx2.BindJson(&p2)
-	if err == nil {
-		t.Fatal("expected error for wrong Content-Type, got nil")
-	}
-
 	// --- Test BindJson with invalid JSON ---
 	req3 := httptest.NewRequest("POST", "/json", strings.NewReader(`{"name":"Bob",`))
 	req3.Header.Set("Content-Type", "application/json")
@@ -510,7 +496,7 @@ func TestContext_BindJson_SendJson(t *testing.T) {
 	ctx3.init(req3, rec3)
 
 	var p3 payload
-	err = ctx3.BindJson(&p3)
+	err := ctx3.BindJson(&p3)
 	if err == nil {
 		t.Fatal("expected error for malformed JSON, got nil")
 	}
@@ -534,5 +520,45 @@ func TestContext_BindJson_SendJson(t *testing.T) {
 	}
 	if ct := rec4.Header().Get("Content-Type"); ct != "application/json" {
 		t.Errorf("SendJson Content-Type = %q; want application/json", ct)
+	}
+}
+
+func TestContext_SendSecureJson(t *testing.T) {
+	type payload struct {
+		Name string `json:"name"`
+		Age  int    `json:"age"`
+	}
+
+	// --- Dummy Nexora instance ---
+	dummyNexora := &Nexora{
+		JsonDecoder: func(data []byte, v any) error {
+			return json.Unmarshal(data, v)
+		},
+		JsonEncoder: func(v any) ([]byte, error) {
+			return json.Marshal(v)
+		},
+		secureJsonPrefix: []byte("while(1);"),
+	}
+
+	// --- Test SendSecureJson ---
+	out := payload{Name: "Daisy", Age: 40}
+	req := httptest.NewRequest("GET", "/securejson", nil)
+	rec := httptest.NewRecorder()
+
+	ctx := newContext(dummyNexora)
+	ctx.init(req, rec)
+
+	if err := ctx.SendSecureJson(out); err != nil {
+		t.Fatalf("SendSecureJson failed: %v", err)
+	}
+
+	gotBody := rec.Body.String()
+	wantBody := `while(1);{"name":"Daisy","age":40}`
+	if gotBody != wantBody {
+		t.Errorf("SendSecureJson wrote wrong body: got %q, want %q", gotBody, wantBody)
+	}
+
+	if ct := rec.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("SendSecureJson Content-Type = %q; want application/json", ct)
 	}
 }
