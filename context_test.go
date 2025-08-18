@@ -1,6 +1,7 @@
 package nexora
 
 import (
+	"encoding/json"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -450,5 +451,88 @@ func TestContext_SendBytes_SendByte(t *testing.T) {
 	gotSingle := rec.Body.Bytes()
 	if len(gotSingle) != 1 || gotSingle[0] != single {
 		t.Errorf("SendByte wrote wrong value: got %v, want %v", gotSingle, []byte{single})
+	}
+}
+
+func TestContext_BindJson_SendJson(t *testing.T) {
+	type payload struct {
+		Name string `json:"name"`
+		Age  int    `json:"age"`
+	}
+
+	// --- Create a dummy Nexora instance with JSON encoder/decoder ---
+	dummyNexora := &Nexora{
+		JsonDecoder: func(data []byte, v any) error {
+			return json.Unmarshal(data, v)
+		},
+		JsonEncoder: func(v any) ([]byte, error) {
+			return json.Marshal(v)
+		},
+	}
+
+	// --- Test successful BindJson ---
+	reqBody := `{"name":"Alice","age":30}`
+	req := httptest.NewRequest("POST", "/json", strings.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	ctx := newContext(dummyNexora)
+	ctx.init(req, rec)
+
+	var p payload
+	if err := ctx.BindJson(&p); err != nil {
+		t.Fatalf("BindJson failed: %v", err)
+	}
+	if p.Name != "Alice" || p.Age != 30 {
+		t.Errorf("BindJson parsed wrong values: %+v", p)
+	}
+
+	// --- Test BindJson with wrong Content-Type ---
+	req2 := httptest.NewRequest("POST", "/json", strings.NewReader(reqBody))
+	req2.Header.Set("Content-Type", "text/plain")
+	rec2 := httptest.NewRecorder()
+
+	ctx2 := newContext(dummyNexora)
+	ctx2.init(req2, rec2)
+
+	var p2 payload
+	err := ctx2.BindJson(&p2)
+	if err == nil {
+		t.Fatal("expected error for wrong Content-Type, got nil")
+	}
+
+	// --- Test BindJson with invalid JSON ---
+	req3 := httptest.NewRequest("POST", "/json", strings.NewReader(`{"name":"Bob",`))
+	req3.Header.Set("Content-Type", "application/json")
+	rec3 := httptest.NewRecorder()
+
+	ctx3 := newContext(dummyNexora)
+	ctx3.init(req3, rec3)
+
+	var p3 payload
+	err = ctx3.BindJson(&p3)
+	if err == nil {
+		t.Fatal("expected error for malformed JSON, got nil")
+	}
+
+	// --- Test SendJson ---
+	out := payload{Name: "Charlie", Age: 25}
+	req4 := httptest.NewRequest("GET", "/json", nil)
+	rec4 := httptest.NewRecorder()
+
+	ctx4 := newContext(dummyNexora)
+	ctx4.init(req4, rec4)
+
+	if err := ctx4.SendJson(out); err != nil {
+		t.Fatalf("SendJson failed: %v", err)
+	}
+
+	gotBody := rec4.Body.String()
+	wantBody := `{"name":"Charlie","age":25}` // match struct tags
+	if gotBody != wantBody {
+		t.Errorf("SendJson wrote wrong body: got %q, want %q", gotBody, wantBody)
+	}
+	if ct := rec4.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("SendJson Content-Type = %q; want application/json", ct)
 	}
 }

@@ -11,6 +11,7 @@ import (
 )
 
 const ContentTypeOctetStream = "application/octet-stream"
+const ContentTypeJson = "application/json"
 
 // Context represents the context of a single HTTP request in the Nexora framework.
 //
@@ -364,23 +365,61 @@ func (c *Context) IsAJAX() bool {
 	return c.GetHeader(HeaderXRequestedWith) == "XMLHttpRequest"
 }
 
+func CheckContentType(ct, prefix string) bool {
+	if len(ct) < len(prefix) {
+		return false
+	}
+	for i := 0; i < len(prefix); i++ {
+		if ct[i] != prefix[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// BindJson parses the request body as JSON into v.
+// Returns an error if Content-Type is not JSON or if decoding fails.
 func (c *Context) BindJson(v any) error {
 	err := c.nexora.JsonDecoder(c.Body(), v)
 	if err == nil {
 		return nil
 	}
-
-	var msg string
-	switch e := err.(type) {
-	case *json.SyntaxError:
-		msg = fmt.Sprintf("Malformed JSON at byte offset %d", e.Offset)
-	case *json.UnmarshalTypeError:
-		msg = fmt.Sprintf("Wrong type for field '%s', expected %s at byte offset %d", e.Field, e.Type, e.Offset)
-	default:
-		msg = err.Error()
+	// Decode JSON directly from the request body
+	if err := c.nexora.JsonDecoder(c.Body(), v); err != nil {
+		// Zero-cost, minimal allocation error handling
+		switch e := err.(type) {
+		case *json.SyntaxError:
+			return NewHTTPError(StatusBadRequest, fmt.Sprintf("Malformed JSON at byte offset %d", e.Offset))
+		case *json.UnmarshalTypeError:
+			return NewHTTPError(StatusBadRequest,
+				fmt.Sprintf("Wrong type for field '%s', expected %s at byte offset %d", e.Field, e.Type, e.Offset))
+		default:
+			return NewHTTPError(StatusBadRequest, err.Error())
+		}
 	}
 
-	return NewHTTPError(StatusBadRequest, msg)
+	return nil
+}
+
+// Json is a helper function that parses the JSON body of the request
+// into a new instance of type T, reducing boilerplate code.
+func Json[T any](c *Context) (*T, error) {
+	var value = new(T)
+	if err := c.BindJson(value); err != nil {
+		return nil, err
+	}
+	return value, nil
+}
+
+// SendJson encodes v as JSON and writes it to the response body.
+// Returns an error if encoding fails.
+func (c *Context) SendJson(v any) error {
+	body, err := c.nexora.JsonEncoder(v)
+	if err != nil {
+		return NewHTTPError(StatusInternalServerError, fmt.Sprintf("failed to encode JSON: %v", err))
+	}
+	c.SetContentType(ContentTypeJson)
+	return c.setBody(body)
 }
 
 // SendBytes sets the Content-Type to "application/octet-stream" and writes
