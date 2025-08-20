@@ -388,6 +388,29 @@ func (c *Context) BindJson(v any) error {
 	return nil
 }
 
+// SendJsonp encodes v as JSON and wraps it in a JavaScript function call
+// using the given callback name (e.g., callback(v);). This is commonly
+// used to support cross-domain requests without CORS.
+//
+// Example output:
+//
+//	callback({"message":"hello"});
+//
+// If encoding fails or writing fails, an HTTP error is returned.
+func (c *Context) SendJsonp(callback string, v any) error {
+	body, err := c.nexora.JsonEncoder(v)
+	if err != nil {
+		return NewHTTPError(StatusInternalServerError,
+			fmt.Sprintf("failed to encode JSON: %v", err))
+	}
+
+	c.SetContentType("application/javascript")
+
+	// Wrap JSON with callback(...)
+	full := []byte(callback + "(" + string(body) + ");")
+	return c.setBody(full)
+}
+
 // Json is a helper function that parses the JSON body of the request
 // into a new instance of type T, reducing boilerplate code.
 func Json[T any](c *Context) (*T, error) {
