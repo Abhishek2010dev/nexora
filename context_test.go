@@ -2,6 +2,7 @@ package nexora
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -560,5 +561,105 @@ func TestContext_SendSecureJson(t *testing.T) {
 
 	if ct := rec.Header().Get("Content-Type"); ct != "application/json" {
 		t.Errorf("SendSecureJson Content-Type = %q; want application/json", ct)
+	}
+}
+
+func TestContext_BindXml_SendXml(t *testing.T) {
+	type payload struct {
+		Name string `xml:"name"`
+		Age  int    `xml:"age"`
+	}
+
+	// --- Create a dummy Nexora instance with XML encoder/decoder ---
+	dummyNexora := &Nexora{
+		XmlDecoder: func(data []byte, v any) error {
+			return xml.Unmarshal(data, v)
+		},
+		XmlEncoder: func(v any) ([]byte, error) {
+			return xml.Marshal(v)
+		},
+		XmlIndentationEncoder: func(v any, prefix, indent string) ([]byte, error) {
+			return xml.MarshalIndent(v, prefix, indent)
+		},
+	}
+
+	// --- Test successful BindXml ---
+	reqBody := `<payload><name>Alice</name><age>30</age></payload>`
+	req := httptest.NewRequest("POST", "/xml", strings.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/xml")
+	rec := httptest.NewRecorder()
+
+	ctx := newContext(dummyNexora)
+	ctx.init(req, rec)
+
+	var p payload
+	if err := ctx.BindXml(&p); err != nil {
+		t.Fatalf("BindXml failed: %v", err)
+	}
+	if p.Name != "Alice" || p.Age != 30 {
+		t.Errorf("BindXml parsed wrong values: %+v", p)
+	}
+
+	// --- Test BindXml with invalid XML ---
+	req2 := httptest.NewRequest("POST", "/xml", strings.NewReader(`<payload><name>Bob</age>`))
+	req2.Header.Set("Content-Type", "application/xml")
+	rec2 := httptest.NewRecorder()
+
+	ctx2 := newContext(dummyNexora)
+	ctx2.init(req2, rec2)
+
+	var p2 payload
+	err := ctx2.BindXml(&p2)
+	if err == nil {
+		t.Fatal("expected error for malformed XML, got nil")
+	}
+
+	// --- Test SendXml ---
+	out := payload{Name: "Charlie", Age: 25}
+	req3 := httptest.NewRequest("GET", "/xml", nil)
+	rec3 := httptest.NewRecorder()
+
+	ctx3 := newContext(dummyNexora)
+	ctx3.init(req3, rec3)
+
+	if err := ctx3.SendXml(out); err != nil {
+		t.Fatalf("SendXml failed: %v", err)
+	}
+
+	gotBody := rec3.Body.String()
+	wantBody := `<payload><name>Charlie</name><age>25</age></payload>`
+	if gotBody != wantBody {
+		t.Errorf("SendXml wrote wrong body:\n got  %q\n want %q", gotBody, wantBody)
+	}
+	if ct := rec3.Header().Get("Content-Type"); ct != "application/xml" {
+		t.Errorf("SendXml Content-Type = %q; want application/xml", ct)
+	}
+
+	// --- Test SendPrettyXml ---
+	req4 := httptest.NewRequest("GET", "/xml", nil)
+	rec4 := httptest.NewRecorder()
+
+	ctx4 := newContext(dummyNexora)
+	ctx4.init(req4, rec4)
+
+	if err := ctx4.SendPrettyXml(out); err != nil {
+		t.Fatalf("SendPrettyXml failed: %v", err)
+	}
+	if !strings.Contains(rec4.Body.String(), "\n") {
+		t.Errorf("SendPrettyXml did not pretty-print XML, got: %q", rec4.Body.String())
+	}
+
+	// --- Test SendIndentXml with custom indent ---
+	req5 := httptest.NewRequest("GET", "/xml", nil)
+	rec5 := httptest.NewRecorder()
+
+	ctx5 := newContext(dummyNexora)
+	ctx5.init(req5, rec5)
+
+	if err := ctx5.SendIndentXml(out, "", "\t"); err != nil {
+		t.Fatalf("SendIndentXml failed: %v", err)
+	}
+	if !strings.Contains(rec5.Body.String(), "\t<name>") {
+		t.Errorf("SendIndentXml did not apply custom indent, got: %q", rec5.Body.String())
 	}
 }

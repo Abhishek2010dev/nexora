@@ -2,6 +2,7 @@ package nexora
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"log"
 	"net/http"
 	"strings"
@@ -45,7 +46,11 @@ type Nexora struct {
 	// It helps prevent JSON hijacking attacks by making the response invalid JavaScript
 	// until parsed as JSON. The default value is "while(1);".
 	secureJsonPrefix       []byte
-	JsonIndentationEncoder IndentationEncoder
+	JsonIndentationEncoder IndentationEncoder // JsonIndentationEncoder encodes a value as indented JSON.
+
+	XmlEncoder            EncoderFunc        // Encodes a Go value into XML.
+	XmlDecoder            DecoderFunc        // Decodes XML data into a Go value.
+	XmlIndentationEncoder IndentationEncoder // Encodes a Go value into indented XML.
 
 	// Enables automatic redirection if the current route can't be matched but a
 	// handler for the path with (without) the trailing slash exists.
@@ -124,6 +129,9 @@ func New() *Nexora {
 		JsonDecoder:            json.Unmarshal,
 		JsonIndentationEncoder: json.MarshalIndent,
 		secureJsonPrefix:       []byte("while(1);"),
+		XmlEncoder:             xml.Marshal,
+		XmlDecoder:             xml.Unmarshal,
+		XmlIndentationEncoder:  xml.MarshalIndent,
 	}
 	nexora.RouteGroup = *newRouteGroup(nexora, "", make([]Handler, 0))
 	nexora.pool = &sync.Pool{

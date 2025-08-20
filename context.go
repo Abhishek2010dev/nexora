@@ -12,6 +12,7 @@ import (
 
 const ContentTypeOctetStream = "application/octet-stream"
 const ContentTypeJson = "application/json"
+const ContentTypeXml = "application/xml"
 
 // Context represents the context of a single HTTP request in the Nexora framework.
 //
@@ -483,6 +484,69 @@ func (c *Context) SendSecureJson(v any) error {
 
 	full := append(c.nexora.secureJsonPrefix, body...)
 	return c.setBody(full)
+}
+
+// BindXml parses the request body as XML into v.
+func (c *Context) BindXml(v any) error {
+	err := c.nexora.XmlDecoder(c.Body(), v)
+	if err == nil {
+		return nil
+	}
+	return NewHTTPError(StatusBadRequest, fmt.Sprintf("failed to decode XML: %v", err))
+}
+
+// Xml is a helper function that parses the XML body of the request
+// into a new instance of type T, reducing boilerplate code.
+func Xml[T any](c *Context) (*T, error) {
+	var value = new(T)
+	if err := c.BindXml(value); err != nil {
+		return nil, err
+	}
+	return value, nil
+}
+
+// SendXml encodes v as XML and writes it to the response body.
+// Returns an error if encoding fails.
+func (c *Context) SendXml(v any) error {
+	body, err := c.nexora.XmlEncoder(v)
+	if err != nil {
+		return NewHTTPError(StatusInternalServerError, fmt.Sprintf("failed to encode XML: %v", err))
+	}
+	c.SetContentType(ContentTypeXml)
+	return c.setBody(body)
+}
+
+// SendPrettyXml encodes the given value `v` into a human-readable XML format
+// (pretty-printed with a single space as indentation). It sets the response
+// Content-Type to "application/xml" and writes the XML body to the response.
+//
+// Returns an error if XML encoding or writing to the response fails.
+func (c *Context) SendPrettyXml(v any) error {
+	body, err := c.nexora.XmlIndentationEncoder(v, "", " ")
+	if err != nil {
+		return NewHTTPError(StatusInternalServerError, fmt.Sprintf("failed to encode XML: %v", err))
+	}
+	c.SetContentType(ContentTypeXml)
+	return c.setBody(body)
+}
+
+// SendIndentXml encodes the given value `v` into indented XML using the
+// provided prefix and indent string. It sets the response Content-Type to
+// "application/xml" and writes the XML body to the response.
+//
+// Parameters:
+//   - v: The value to encode as XML.
+//   - prefix: A string to place before each XML line.
+//   - indent: A string used for indentation (e.g., "\t" or "  ").
+//
+// Returns an error if XML encoding or writing to the response fails.
+func (c *Context) SendIndentXml(v any, prefix, indent string) error {
+	body, err := c.nexora.XmlIndentationEncoder(v, prefix, indent)
+	if err != nil {
+		return NewHTTPError(StatusInternalServerError, fmt.Sprintf("failed to encode XML: %v", err))
+	}
+	c.SetContentType(ContentTypeXml)
+	return c.setBody(body)
 }
 
 // SendBytes sets the Content-Type to "application/octet-stream" and writes
