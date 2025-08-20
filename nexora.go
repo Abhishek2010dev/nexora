@@ -44,7 +44,8 @@ type Nexora struct {
 	// secureJsonPrefix is the prefix added when sending JSON with c.SendSecureJson.
 	// It helps prevent JSON hijacking attacks by making the response invalid JavaScript
 	// until parsed as JSON. The default value is "while(1);".
-	secureJsonPrefix []byte
+	secureJsonPrefix       []byte
+	JsonIndentationEncoder IndentationEncoder
 
 	// Enables automatic redirection if the current route can't be matched but a
 	// handler for the path with (without) the trailing slash exists.
@@ -121,6 +122,7 @@ func New() *Nexora {
 		namedRoutes:            make(map[string]*Route),
 		JsonEncoder:            json.Marshal,
 		JsonDecoder:            json.Unmarshal,
+		JsonIndentationEncoder: json.MarshalIndent,
 		secureJsonPrefix:       []byte("while(1);"),
 	}
 	nexora.RouteGroup = *newRouteGroup(nexora, "", make([]Handler, 0))

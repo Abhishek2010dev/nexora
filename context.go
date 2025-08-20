@@ -409,6 +409,39 @@ func (c *Context) SendJson(v any) error {
 	return c.setBody(body)
 }
 
+// SendPrettyJson encodes the given value `v` into a human-readable JSON format
+// (pretty-printed with a single space as indentation). It sets the response
+// Content-Type to "application/json" and writes the JSON body to the response.
+//
+// Returns an error if JSON encoding or writing to the response fails.
+func (c *Context) SendPrettyJson(v any) error {
+	body, err := c.nexora.JsonIndentationEncoder(v, "", " ")
+	if err != nil {
+		return NewHTTPError(StatusInternalServerError, fmt.Sprintf("failed to encode JSON: %v", err))
+	}
+	c.SetContentType(ContentTypeJson)
+	return c.setBody(body)
+}
+
+// SendIndentJson encodes the given value `v` into indented JSON using the
+// provided prefix and indent string. It sets the response Content-Type to
+// "application/json" and writes the JSON body to the response.
+//
+// Parameters:
+//   - v: The value to encode as JSON.
+//   - prefix: A string to place before each JSON line.
+//   - indent: A string used for indentation (e.g., "\t" or "  ").
+//
+// Returns an error if JSON encoding or writing to the response fails.
+func (c *Context) SendIndentJson(v any, prefix, indent string) error {
+	body, err := c.nexora.JsonIndentationEncoder(v, prefix, indent)
+	if err != nil {
+		return NewHTTPError(StatusInternalServerError, fmt.Sprintf("failed to encode JSON: %v", err))
+	}
+	c.SetContentType(ContentTypeJson)
+	return c.setBody(body)
+}
+
 // SendSecureJson encodes the given value as JSON and writes it to the response
 // with the "application/json" Content-Type header. The output is prefixed with
 // c.nexora.secureJsonPrefix (e.g., "while(1);") to mitigate JSON hijacking
