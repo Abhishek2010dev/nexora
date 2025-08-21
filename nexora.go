@@ -29,11 +29,13 @@ const MethodWild = "*"
 
 var questionMark = byte('?')
 
+// Handler defines the signature for a request handler function that processes a Context and returns an error.
 type Handler func(c *Context) error
 
-type Nexora struct {
+// Config holds all configurable options for Nexora.
+// Users can pass a Config to New() to override defaults.
+type Config struct {
 	trees              []*tree
-	treeMutable        bool
 	customMethodsIndex map[string]int
 	registeredPaths    map[string][]string
 	namedRoutes        map[string]*Route // Maps route names to paths
@@ -45,7 +47,7 @@ type Nexora struct {
 	// secureJsonPrefix is the prefix added when sending JSON with c.SendSecureJson.
 	// It helps prevent JSON hijacking attacks by making the response invalid JavaScript
 	// until parsed as JSON. The default value is "while(1);".
-	secureJsonPrefix       []byte
+	SecureJsonPrefix       string
 	JsonIndentationEncoder IndentationEncoder // JsonIndentationEncoder encodes a value as indented JSON.
 
 	XmlEncoder            EncoderFunc        // Encodes a Go value into XML.
@@ -57,7 +59,7 @@ type Nexora struct {
 	// For example if /foo/ is requested but a route only exists for /foo, the
 	// client is redirected to /foo with http status code 301 for GET requests
 	// and 308 for all other request methods.
-	RedirectTrailingSlash bool
+	RedirectTrailingSlash *bool
 
 	// If enabled, the router tries to fix the current request path, if no
 	// handle is registered for it.
@@ -68,7 +70,7 @@ type Nexora struct {
 	// all other request methods.
 	// For example /FOO and /..//Foo could be redirected to /foo.
 	// RedirectTrailingSlash is independent of this option.
-	RedirectFixedPath bool
+	RedirectFixedPath *bool
 
 	// If enabled, the router checks if another method is allowed for the
 	// current route, if the current request can not be routed.
@@ -76,11 +78,11 @@ type Nexora struct {
 	// and HTTP status code 405.
 	// If no other Method is allowed, the request is delegated to the NotFound
 	// handler.
-	HandleMethodNotAllowed bool
+	HandleMethodNotAllowed *bool
 
 	// If enabled, the router automatically replies to OPTIONS requests.
 	// Custom OPTIONS handlers take priority over automatic replies.
-	HandleOPTIONS bool
+	HandleOPTIONS *bool
 
 	// An optional http.Handler that is called on automatic OPTIONS requests.
 	// The handler is only called if HandleOPTIONS is true and no OPTIONS
@@ -114,32 +116,148 @@ type Nexora struct {
 	pool *sync.Pool // Pool for Context objects
 }
 
-// New creates a new instance of Nexora with default settings.
-func New() *Nexora {
-	nexora := &Nexora{
-		trees:                  make([]*tree, 10),
-		customMethodsIndex:     make(map[string]int),
-		registeredPaths:        make(map[string][]string),
-		RedirectTrailingSlash:  true,
-		RedirectFixedPath:      true,
-		HandleMethodNotAllowed: true,
-		HandleOPTIONS:          true,
-		namedRoutes:            make(map[string]*Route),
+// DefaultConfig returns a Config with sensible default values.
+func DefaultConfig() *Config {
+	redirect := true
+	return &Config{
+		RedirectTrailingSlash:  &redirect,
+		RedirectFixedPath:      &redirect,
+		HandleMethodNotAllowed: &redirect,
+		HandleOPTIONS:          &redirect,
+
 		JsonEncoder:            json.Marshal,
 		JsonDecoder:            json.Unmarshal,
 		JsonIndentationEncoder: json.MarshalIndent,
-		secureJsonPrefix:       []byte("while(1);"),
-		XmlEncoder:             xml.Marshal,
-		XmlDecoder:             xml.Unmarshal,
-		XmlIndentationEncoder:  xml.MarshalIndent,
+		SecureJsonPrefix:       "while(1);",
+
+		XmlEncoder:            xml.Marshal,
+		XmlDecoder:            xml.Unmarshal,
+		XmlIndentationEncoder: xml.MarshalIndent,
 	}
-	nexora.RouteGroup = *newRouteGroup(nexora, "", make([]Handler, 0))
-	nexora.pool = &sync.Pool{
-		New: func() any {
-			return newContext(nexora)
-		},
+}
+
+// Nexora is the main router object.
+// All fields are private. Configurable via Config struct.
+type Nexora struct {
+	trees              []*tree
+	treeMutable        bool
+	customMethodsIndex map[string]int
+	registeredPaths    map[string][]string
+	namedRoutes        map[string]*Route
+
+	RouteGroup // Default route group for new routes
+
+	jsonEncoder            EncoderFunc
+	jsonDecoder            DecoderFunc
+	jsonIndentationEncoder IndentationEncoder
+	secureJsonPrefix       []byte
+
+	xmlEncoder            EncoderFunc
+	xmlDecoder            DecoderFunc
+	xmlIndentationEncoder IndentationEncoder
+
+	redirectTrailingSlash  bool
+	redirectFixedPath      bool
+	handleMethodNotAllowed bool
+	handleOptions          bool
+
+	globalOptions    Handler
+	notFound         Handler
+	methodNotAllowed Handler
+
+	globalAllowed string
+
+	panicHandler func(c *Context, v any) error
+	errorHandler func(c *Context, err error) error
+
+	pool *sync.Pool
+}
+
+// New creates a new instance of Nexora using the provided config.
+// If a field is not set in the config, a default value will be applied.
+func New(config ...*Config) *Nexora {
+	cfg := DefaultConfig()
+	if len(config) > 0 {
+		cfg = config[0]
 	}
-	return nexora
+
+	// Apply defaults if pointers are nil
+	redirectTrailing := true
+	redirectFixed := true
+	handleMethodNotAllowed := true
+	handleOPTIONS := true
+
+	if cfg.RedirectTrailingSlash != nil {
+		redirectTrailing = *cfg.RedirectTrailingSlash
+	}
+	if cfg.RedirectFixedPath != nil {
+		redirectFixed = *cfg.RedirectFixedPath
+	}
+	if cfg.HandleMethodNotAllowed != nil {
+		handleMethodNotAllowed = *cfg.HandleMethodNotAllowed
+	}
+	if cfg.HandleOPTIONS != nil {
+		handleOPTIONS = *cfg.HandleOPTIONS
+	}
+	// JSON defaults
+	if cfg.JsonEncoder == nil {
+		cfg.JsonEncoder = json.Marshal
+	}
+	if cfg.JsonDecoder == nil {
+		cfg.JsonDecoder = json.Unmarshal
+	}
+	if cfg.JsonIndentationEncoder == nil {
+		cfg.JsonIndentationEncoder = json.MarshalIndent
+	}
+	if cfg.SecureJsonPrefix == "" {
+		cfg.SecureJsonPrefix = "while(1);"
+	}
+
+	// XML defaults
+	if cfg.XmlEncoder == nil {
+		cfg.XmlEncoder = xml.Marshal
+	}
+	if cfg.XmlDecoder == nil {
+		cfg.XmlDecoder = xml.Unmarshal
+	}
+	if cfg.XmlIndentationEncoder == nil {
+		cfg.XmlIndentationEncoder = xml.MarshalIndent
+	}
+
+	n := &Nexora{
+		trees:                  make([]*tree, 10),
+		customMethodsIndex:     make(map[string]int),
+		registeredPaths:        make(map[string][]string),
+		namedRoutes:            make(map[string]*Route),
+		redirectTrailingSlash:  redirectTrailing,
+		redirectFixedPath:      redirectFixed,
+		handleMethodNotAllowed: handleMethodNotAllowed,
+		handleOptions:          handleOPTIONS,
+		treeMutable:            true,
+
+		jsonEncoder:            cfg.JsonEncoder,
+		jsonDecoder:            cfg.JsonDecoder,
+		jsonIndentationEncoder: cfg.JsonIndentationEncoder,
+		secureJsonPrefix:       []byte(cfg.SecureJsonPrefix),
+
+		xmlEncoder:            cfg.XmlEncoder,
+		xmlDecoder:            cfg.XmlDecoder,
+		xmlIndentationEncoder: cfg.XmlIndentationEncoder,
+
+		globalOptions:    cfg.GlobalOPTIONS,
+		notFound:         cfg.NotFound,
+		methodNotAllowed: cfg.MethodNotAllowed,
+		panicHandler:     cfg.PanicHandler,
+		errorHandler:     cfg.ErrorHandler,
+	}
+
+	// Initialize route group and context pool
+	n.RouteGroup = *newRouteGroup(n, "", make([]Handler, 0))
+	n.pool = &sync.Pool{
+		New: func() any { return newContext(n) },
+	}
+
+	return n
 }
 
 func (n *Nexora) SetSecureJsonPrefix(prefix string) {
@@ -187,7 +305,7 @@ func (n *Nexora) methodIndexOf(method string) int {
 // PanicHandler is the default panic handler that recovers from panics in handlers.
 func (n *Nexora) recv(c *Context) {
 	if rcv := recover(); rcv != nil {
-		if err := n.PanicHandler(c, rcv); err != nil {
+		if err := n.panicHandler(c, rcv); err != nil {
 			n.handleError(c, err)
 		}
 	}
@@ -326,7 +444,7 @@ func (n *Nexora) tryRedirect(w http.ResponseWriter, r *http.Request, tree *tree,
 		code = http.StatusPermanentRedirect
 	}
 
-	if tsr && n.RedirectTrailingSlash {
+	if tsr && n.redirectTrailingSlash {
 		uri := bytebufferpool.Get()
 
 		if len(path) > 1 && path[len(path)-1] == '/' {
@@ -349,13 +467,13 @@ func (n *Nexora) tryRedirect(w http.ResponseWriter, r *http.Request, tree *tree,
 	}
 
 	// Try to fix the request path
-	if n.RedirectFixedPath {
+	if n.redirectFixedPath {
 		path2 := r.URL.RawPath
 
 		uri := bytebufferpool.Get()
 		found := tree.FindCaseInsensitivePath(
 			cleanPath(path2),
-			n.RedirectTrailingSlash,
+			n.redirectTrailingSlash,
 			uri,
 		)
 
@@ -379,8 +497,8 @@ func (n *Nexora) tryRedirect(w http.ResponseWriter, r *http.Request, tree *tree,
 }
 
 func (n *Nexora) handleError(c *Context, err error) {
-	if n.ErrorHandler != nil {
-		if handlerErr := n.ErrorHandler(c, err); handlerErr != nil {
+	if n.errorHandler != nil {
+		if handlerErr := n.errorHandler(c, err); handlerErr != nil {
 			// NOTE: Replace it later with nexora custom logger
 			log.Printf("ErrorHandler failed: %v", handlerErr)
 			http.Error(c.ResponseWriter(), "Internal Server Error", http.StatusInternalServerError)
@@ -445,7 +563,7 @@ func (n *Nexora) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if n.HandleOPTIONS && method == MethodOptions {
+	if n.handleOptions && method == MethodOptions {
 		allow := n.allowed(path, MethodOptions)
 		if allow == "" {
 			allow = n.allowed("*", MethodOptions)
@@ -453,19 +571,19 @@ func (n *Nexora) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		if allow != "" {
 			w.Header().Set("Allow", allow)
-			if n.GlobalOPTIONS != nil {
-				if err := n.GlobalOPTIONS(c); err != nil {
+			if n.globalOptions != nil {
+				if err := n.globalOptions(c); err != nil {
 					n.handleError(c, err)
 					return
 				}
 			}
 			return
 		}
-	} else if n.HandleMethodNotAllowed {
+	} else if n.handleMethodNotAllowed {
 		if allow := n.allowed(path, method); allow != "" {
 			w.Header().Set("Allow", allow)
-			if n.MethodNotAllowed != nil {
-				if err := n.MethodNotAllowed(c); err != nil {
+			if n.methodNotAllowed != nil {
+				if err := n.methodNotAllowed(c); err != nil {
 					n.handleError(c, err)
 				}
 			} else {
@@ -475,8 +593,8 @@ func (n *Nexora) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if n.NotFound != nil {
-		if err := n.NotFound(c); err != nil {
+	if n.notFound != nil {
+		if err := n.notFound(c); err != nil {
 			n.handleError(c, err)
 			return
 		}

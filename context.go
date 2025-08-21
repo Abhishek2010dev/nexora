@@ -368,12 +368,12 @@ func (c *Context) IsAJAX() bool {
 
 // BindJson parses the request body as JSON into v.
 func (c *Context) BindJson(v any) error {
-	err := c.nexora.JsonDecoder(c.Body(), v)
+	err := c.nexora.jsonDecoder(c.Body(), v)
 	if err == nil {
 		return nil
 	}
 	// Decode JSON directly from the request body
-	if err := c.nexora.JsonDecoder(c.Body(), v); err != nil {
+	if err := c.nexora.jsonDecoder(c.Body(), v); err != nil {
 		// Zero-cost, minimal allocation error handling
 		switch e := err.(type) {
 		case *json.SyntaxError:
@@ -399,7 +399,7 @@ func (c *Context) BindJson(v any) error {
 //
 // If encoding fails or writing fails, an HTTP error is returned.
 func (c *Context) SendJsonp(callback string, v any) error {
-	body, err := c.nexora.JsonEncoder(v)
+	body, err := c.nexora.jsonEncoder(v)
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError,
 			fmt.Sprintf("failed to encode JSON: %v", err))
@@ -425,7 +425,7 @@ func Json[T any](c *Context) (*T, error) {
 // SendJson encodes v as JSON and writes it to the response body.
 // Returns an error if encoding fails.
 func (c *Context) SendJson(v any) error {
-	body, err := c.nexora.JsonEncoder(v)
+	body, err := c.nexora.jsonEncoder(v)
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError, fmt.Sprintf("failed to encode JSON: %v", err))
 	}
@@ -439,7 +439,7 @@ func (c *Context) SendJson(v any) error {
 //
 // Returns an error if JSON encoding or writing to the response fails.
 func (c *Context) SendPrettyJson(v any) error {
-	body, err := c.nexora.JsonIndentationEncoder(v, "", " ")
+	body, err := c.nexora.jsonIndentationEncoder(v, "", " ")
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError, fmt.Sprintf("failed to encode JSON: %v", err))
 	}
@@ -458,7 +458,7 @@ func (c *Context) SendPrettyJson(v any) error {
 //
 // Returns an error if JSON encoding or writing to the response fails.
 func (c *Context) SendIndentJson(v any, prefix, indent string) error {
-	body, err := c.nexora.JsonIndentationEncoder(v, prefix, indent)
+	body, err := c.nexora.jsonIndentationEncoder(v, prefix, indent)
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError, fmt.Sprintf("failed to encode JSON: %v", err))
 	}
@@ -474,7 +474,7 @@ func (c *Context) SendIndentJson(v any, prefix, indent string) error {
 // If JSON encoding fails or writing to the response fails, an HTTP error is
 // returned.
 func (c *Context) SendSecureJson(v any) error {
-	body, err := c.nexora.JsonEncoder(v)
+	body, err := c.nexora.jsonEncoder(v)
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError,
 			fmt.Sprintf("failed to encode JSON: %v", err))
@@ -488,7 +488,7 @@ func (c *Context) SendSecureJson(v any) error {
 
 // BindXml parses the request body as XML into v.
 func (c *Context) BindXml(v any) error {
-	err := c.nexora.XmlDecoder(c.Body(), v)
+	err := c.nexora.xmlDecoder(c.Body(), v)
 	if err == nil {
 		return nil
 	}
@@ -508,7 +508,7 @@ func Xml[T any](c *Context) (*T, error) {
 // SendXml encodes v as XML and writes it to the response body.
 // Returns an error if encoding fails.
 func (c *Context) SendXml(v any) error {
-	body, err := c.nexora.XmlEncoder(v)
+	body, err := c.nexora.xmlEncoder(v)
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError, fmt.Sprintf("failed to encode XML: %v", err))
 	}
@@ -522,7 +522,7 @@ func (c *Context) SendXml(v any) error {
 //
 // Returns an error if XML encoding or writing to the response fails.
 func (c *Context) SendPrettyXml(v any) error {
-	body, err := c.nexora.XmlIndentationEncoder(v, "", " ")
+	body, err := c.nexora.xmlIndentationEncoder(v, "", " ")
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError, fmt.Sprintf("failed to encode XML: %v", err))
 	}
@@ -541,7 +541,7 @@ func (c *Context) SendPrettyXml(v any) error {
 //
 // Returns an error if XML encoding or writing to the response fails.
 func (c *Context) SendIndentXml(v any, prefix, indent string) error {
-	body, err := c.nexora.XmlIndentationEncoder(v, prefix, indent)
+	body, err := c.nexora.xmlIndentationEncoder(v, prefix, indent)
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError, fmt.Sprintf("failed to encode XML: %v", err))
 	}

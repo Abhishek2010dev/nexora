@@ -463,10 +463,10 @@ func TestContext_BindJson_SendJson(t *testing.T) {
 
 	// --- Create a dummy Nexora instance with JSON encoder/decoder ---
 	dummyNexora := &Nexora{
-		JsonDecoder: func(data []byte, v any) error {
+		jsonDecoder: func(data []byte, v any) error {
 			return json.Unmarshal(data, v)
 		},
-		JsonEncoder: func(v any) ([]byte, error) {
+		jsonEncoder: func(v any) ([]byte, error) {
 			return json.Marshal(v)
 		},
 	}
@@ -532,10 +532,10 @@ func TestContext_SendSecureJson(t *testing.T) {
 
 	// --- Dummy Nexora instance ---
 	dummyNexora := &Nexora{
-		JsonDecoder: func(data []byte, v any) error {
+		jsonDecoder: func(data []byte, v any) error {
 			return json.Unmarshal(data, v)
 		},
-		JsonEncoder: func(v any) ([]byte, error) {
+		jsonEncoder: func(v any) ([]byte, error) {
 			return json.Marshal(v)
 		},
 		secureJsonPrefix: []byte("while(1);"),
@@ -572,13 +572,13 @@ func TestContext_BindXml_SendXml(t *testing.T) {
 
 	// --- Create a dummy Nexora instance with XML encoder/decoder ---
 	dummyNexora := &Nexora{
-		XmlDecoder: func(data []byte, v any) error {
+		xmlDecoder: func(data []byte, v any) error {
 			return xml.Unmarshal(data, v)
 		},
-		XmlEncoder: func(v any) ([]byte, error) {
+		xmlEncoder: func(v any) ([]byte, error) {
 			return xml.Marshal(v)
 		},
-		XmlIndentationEncoder: func(v any, prefix, indent string) ([]byte, error) {
+		xmlIndentationEncoder: func(v any, prefix, indent string) ([]byte, error) {
 			return xml.MarshalIndent(v, prefix, indent)
 		},
 	}
