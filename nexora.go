@@ -3,6 +3,7 @@ package nexora
 import (
 	"encoding/json"
 	"encoding/xml"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -619,6 +620,33 @@ func (n *Nexora) Run(addr string) error {
 		Addr:    addr,
 		Handler: n,
 	}
-
+	printLogo()
+	Info("Listening on port " + addr)
 	return server.ListenAndServe()
+}
+
+// ANSI color codes
+const (
+	Reset  = "\033[0m"
+	Red    = "\033[31m"
+	Green  = "\033[32m"
+	Yellow = "\033[33m"
+	Blue   = "\033[34m"
+	Purple = "\033[35m"
+	Cyan   = "\033[36m"
+	White  = "\033[37m"
+)
+
+func printLogo() {
+	logo := fmt.Sprintf(`
+%s _   _            _                 
+%s| \ | | ___   ___| | _____ _ __ ___ 
+%s|  \| |/ _ \ / __| |/ / _ \ '__/ __|
+%s| |\  |  __/ \__ \   <  __/ |  \__ \
+%s|_| \_|\___| |___/_|\_\___|_|  |___/
+                                    
+        %sNexora - High-performance Go Framework%s
+`, Cyan, Green, Yellow, Blue, Purple, White, Reset)
+
+	fmt.Println(logo)
 }
