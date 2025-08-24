@@ -54,6 +54,17 @@ func Logger(config ...*LoggerConfig) nexora.Handler {
 		ip := c.IP()
 		ua := c.GetHeader("User-Agent")
 
+		// Choose log level based on status
+		logFn := nexora.Info
+		switch {
+		case status >= 500:
+			logFn = nexora.Error
+		case status >= 400:
+			logFn = nexora.Warn
+		default:
+			logFn = nexora.Info
+		}
+
 		// Custom message template
 		if cfg.MessageFormat != "" {
 			msg := replaceLogPlaceholders(cfg.MessageFormat, map[string]string{
@@ -64,13 +75,12 @@ func Logger(config ...*LoggerConfig) nexora.Handler {
 				"ip":      ip,
 				"ua":      ua,
 			})
-			nexora.Info(msg)
+			logFn(msg)
 			return err
 		}
 
-		// Switch format based on Production flag
+		// Structured logs for Production
 		if cfg.Production {
-			// Structured logs for production
 			fields := []any{
 				"method", method,
 				"path", path,
@@ -86,9 +96,9 @@ func Logger(config ...*LoggerConfig) nexora.Handler {
 				fields = append(fields, "ua", ua)
 			}
 			fields = append(fields, "service", "nexora")
-			nexora.Info("request", fields...)
+			logFn("request", fields...)
 		} else {
-			// Pretty logs for dev mode
+			// Pretty logs for dev
 			msg := fmt.Sprintf("%s %s -> %d", method, path, status)
 			if cfg.LogLatency {
 				msg += fmt.Sprintf(" (%s)", formatLatency(latency))
@@ -96,8 +106,7 @@ func Logger(config ...*LoggerConfig) nexora.Handler {
 			if cfg.LogIP {
 				msg += fmt.Sprintf(" from %s", ip)
 			}
-			msg += " service=nexora"
-			nexora.Info(msg)
+			logFn(msg)
 		}
 
 		return err

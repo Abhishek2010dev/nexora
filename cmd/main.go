@@ -12,7 +12,7 @@ func main() {
 		LogIP:      true,
 	}))
 	router.Get("/", func(c *nexora.Context) error {
-		return c.SendString("Hello, World")
+		return c.SendStatus(500)
 	})
 	router.Run(":3000")
 }
