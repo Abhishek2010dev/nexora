@@ -39,6 +39,7 @@ type Config struct {
 	customMethodsIndex map[string]int
 	registeredPaths    map[string][]string
 	namedRoutes        map[string]*Route // Maps route names to paths
+	LoggerConfig       *LoggerConfig
 
 	RouteGroup // Default route group for new routes
 
@@ -251,6 +252,7 @@ func New(config ...*Config) *Nexora {
 		errorHandler:     cfg.ErrorHandler,
 	}
 
+	initLogger(cfg.LoggerConfig)
 	// Initialize route group and context pool
 	n.RouteGroup = *newRouteGroup(n, "", make([]Handler, 0))
 	n.pool = &sync.Pool{

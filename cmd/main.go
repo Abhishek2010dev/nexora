@@ -5,9 +5,13 @@ import (
 )
 
 func main() {
-	router := nexora.New()
+	router := nexora.New(&nexora.Config{
+		LoggerConfig: &nexora.LoggerConfig{
+			Production: true,
+		},
+	})
 	router.Get("/", func(c *nexora.Context) error {
-		return c.SendSecureJson(map[string]any{"hello": "world"})
+		return c.SendString("Hello, World")
 	})
 	router.Run(":3000")
 }
