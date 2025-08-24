@@ -14,7 +14,6 @@ type LoggerConfig struct {
 	LogIP         bool                         // Include client IP
 	LogUserAgent  bool                         // Include user agent
 	MessageFormat string                       // Custom message format
-	Production    bool                         // If true, use structured logs
 }
 
 // DefaultLoggerConfig returns sensible defaults
@@ -25,7 +24,6 @@ func DefaultLoggerConfig() *LoggerConfig {
 		LogIP:         true,
 		LogUserAgent:  false,
 		MessageFormat: "",
-		Production:    false, // Default to dev-friendly logs
 	}
 }
 
@@ -47,14 +45,14 @@ func Logger(config ...*LoggerConfig) nexora.Handler {
 		err := c.Next()
 		latency := time.Since(start)
 
-		// Values for logs
+		// Collect values
 		method := c.Method()
 		path := c.Path()
 		status := c.ResponseWriter().Status()
 		ip := c.IP()
 		ua := c.GetHeader("User-Agent")
 
-		// Choose log level based on status
+		// Choose log level
 		logFn := nexora.Info
 		switch {
 		case status >= 500:
@@ -65,7 +63,7 @@ func Logger(config ...*LoggerConfig) nexora.Handler {
 			logFn = nexora.Info
 		}
 
-		// Custom message template
+		// Use custom message format if given
 		if cfg.MessageFormat != "" {
 			msg := replaceLogPlaceholders(cfg.MessageFormat, map[string]string{
 				"method":  method,
@@ -79,36 +77,24 @@ func Logger(config ...*LoggerConfig) nexora.Handler {
 			return err
 		}
 
-		// Structured logs for Production
-		if cfg.Production {
-			fields := []any{
-				"method", method,
-				"path", path,
-				"status", status,
-			}
-			if cfg.LogLatency {
-				fields = append(fields, "latency", formatLatency(latency))
-			}
-			if cfg.LogIP {
-				fields = append(fields, "ip", ip)
-			}
-			if cfg.LogUserAgent {
-				fields = append(fields, "ua", ua)
-			}
-			fields = append(fields, "service", "nexora")
-			logFn("request", fields...)
-		} else {
-			// Pretty logs for dev
-			msg := fmt.Sprintf("%s %s -> %d", method, path, status)
-			if cfg.LogLatency {
-				msg += fmt.Sprintf(" (%s)", formatLatency(latency))
-			}
-			if cfg.LogIP {
-				msg += fmt.Sprintf(" from %s", ip)
-			}
-			logFn(msg)
+		// Always structured logs
+		fields := []any{
+			"method", method,
+			"path", path,
+			"status", status,
 		}
+		if cfg.LogLatency {
+			fields = append(fields, "latency", formatLatency(latency))
+		}
+		if cfg.LogIP {
+			fields = append(fields, "ip", ip)
+		}
+		if cfg.LogUserAgent {
+			fields = append(fields, "ua", ua)
+		}
+		fields = append(fields, "service", "nexora")
 
+		logFn("request", fields...)
 		return err
 	}
 }
