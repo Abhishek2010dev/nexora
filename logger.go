@@ -20,6 +20,20 @@ type LoggerConfig struct {
 	ServiceName string        // Optional service or app name
 }
 
+// InitDefaultLogger initializes the logger with default configuration.
+// This should be called if no custom LoggerConfig is provided.
+func InitDefaultLogger() {
+	defaultCfg := &LoggerConfig{
+		Production:  false,              // Pretty console output by default
+		Level:       zerolog.DebugLevel, // Debug level for dev mode
+		TimeFormat:  time.RFC3339,       // ISO timestamp
+		Output:      os.Stdout,          // Logs to stdout
+		WithCaller:  false,              // Show caller file:line
+		ServiceName: "nexora",           // Default service name
+	}
+	initLogger(defaultCfg)
+}
+
 func initLogger(cfg *LoggerConfig) {
 	// Set default output if not provided
 	output := cfg.Output
@@ -49,7 +63,7 @@ func initLogger(cfg *LoggerConfig) {
 
 	// Add caller info if enabled
 	if cfg.WithCaller {
-		baseLogger = baseLogger.With().Caller().Logger()
+		baseLogger = baseLogger.With().CallerWithSkipFrameCount(3).Logger()
 	}
 
 	// Set global log level
@@ -104,3 +118,4 @@ func fieldsToMap(fields ...any) map[string]any {
 	}
 	return m
 }
+

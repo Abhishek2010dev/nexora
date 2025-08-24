@@ -3,7 +3,6 @@ package nexora
 import (
 	"encoding/json"
 	"encoding/xml"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -252,7 +251,11 @@ func New(config ...*Config) *Nexora {
 		errorHandler:     cfg.ErrorHandler,
 	}
 
-	initLogger(cfg.LoggerConfig)
+	if cfg.LoggerConfig != nil {
+		initLogger(cfg.LoggerConfig)
+	} else {
+		InitDefaultLogger()
+	}
 	// Initialize route group and context pool
 	n.RouteGroup = *newRouteGroup(n, "", make([]Handler, 0))
 	n.pool = &sync.Pool{
@@ -502,7 +505,7 @@ func (n *Nexora) handleError(c *Context, err error) {
 	if n.errorHandler != nil {
 		if handlerErr := n.errorHandler(c, err); handlerErr != nil {
 			// NOTE: Replace it later with nexora custom logger
-			log.Printf("ErrorHandler failed: %v", handlerErr)
+			Error("ErrorHandler failed: %v", handlerErr)
 			http.Error(c.ResponseWriter(), "Internal Server Error", http.StatusInternalServerError)
 		}
 		return
@@ -512,7 +515,7 @@ func (n *Nexora) handleError(c *Context, err error) {
 		http.Error(c.ResponseWriter(), httpErr.Message, httpErr.StatusCode)
 	} else {
 		// NOTE: Replace it later with nexora custom logger
-		log.Printf("Unhandled error: %v", err)
+		Error("Unhandled error: %v", err)
 		http.Error(c.ResponseWriter(), "Internal Server Error", http.StatusInternalServerError)
 	}
 }
