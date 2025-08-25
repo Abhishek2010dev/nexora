@@ -93,7 +93,7 @@ func TestTree_RegexRoute(t *testing.T) {
 	}
 
 	// Match invalid path (non-numeric)
-	handlers, params, tsr = tree.Get("/product/abc")
+	handlers, _, _ = tree.Get("/product/abc")
 	if handlers != nil {
 		t.Errorf("expected no handler for /product/abc")
 	}

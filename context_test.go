@@ -172,7 +172,7 @@ func TestContext_QueryArray(t *testing.T) {
 	}
 
 	arr = ctx.QueryArray("missing")
-	if arr != nil && len(arr) != 0 {
+	if len(arr) != 0 {
 		t.Errorf("QueryArray(missing) = %v; want nil or []", arr)
 	}
 }
@@ -481,7 +481,7 @@ func TestContext_BindJson_SendJson(t *testing.T) {
 	ctx.init(req, rec)
 
 	var p payload
-	if err := ctx.BindJson(&p); err != nil {
+	if err := ctx.BindJSON(&p); err != nil {
 		t.Fatalf("BindJson failed: %v", err)
 	}
 	if p.Name != "Alice" || p.Age != 30 {
@@ -497,7 +497,7 @@ func TestContext_BindJson_SendJson(t *testing.T) {
 	ctx3.init(req3, rec3)
 
 	var p3 payload
-	err := ctx3.BindJson(&p3)
+	err := ctx3.BindJSON(&p3)
 	if err == nil {
 		t.Fatal("expected error for malformed JSON, got nil")
 	}
@@ -510,7 +510,7 @@ func TestContext_BindJson_SendJson(t *testing.T) {
 	ctx4 := newContext(dummyNexora)
 	ctx4.init(req4, rec4)
 
-	if err := ctx4.SendJson(out); err != nil {
+	if err := ctx4.SendJSON(out); err != nil {
 		t.Fatalf("SendJson failed: %v", err)
 	}
 
@@ -538,7 +538,7 @@ func TestContext_SendSecureJson(t *testing.T) {
 		jsonEncoder: func(v any) ([]byte, error) {
 			return json.Marshal(v)
 		},
-		secureJsonPrefix: []byte("while(1);"),
+		secureJSONPrefix: []byte("while(1);"),
 	}
 
 	// --- Test SendSecureJson ---
@@ -549,7 +549,7 @@ func TestContext_SendSecureJson(t *testing.T) {
 	ctx := newContext(dummyNexora)
 	ctx.init(req, rec)
 
-	if err := ctx.SendSecureJson(out); err != nil {
+	if err := ctx.SendSecureJSON(out); err != nil {
 		t.Fatalf("SendSecureJson failed: %v", err)
 	}
 
@@ -593,7 +593,7 @@ func TestContext_BindXml_SendXml(t *testing.T) {
 	ctx.init(req, rec)
 
 	var p payload
-	if err := ctx.BindXml(&p); err != nil {
+	if err := ctx.BindXML(&p); err != nil {
 		t.Fatalf("BindXml failed: %v", err)
 	}
 	if p.Name != "Alice" || p.Age != 30 {
@@ -609,7 +609,7 @@ func TestContext_BindXml_SendXml(t *testing.T) {
 	ctx2.init(req2, rec2)
 
 	var p2 payload
-	err := ctx2.BindXml(&p2)
+	err := ctx2.BindXML(&p2)
 	if err == nil {
 		t.Fatal("expected error for malformed XML, got nil")
 	}
@@ -622,7 +622,7 @@ func TestContext_BindXml_SendXml(t *testing.T) {
 	ctx3 := newContext(dummyNexora)
 	ctx3.init(req3, rec3)
 
-	if err := ctx3.SendXml(out); err != nil {
+	if err := ctx3.SendXML(out); err != nil {
 		t.Fatalf("SendXml failed: %v", err)
 	}
 
@@ -642,7 +642,7 @@ func TestContext_BindXml_SendXml(t *testing.T) {
 	ctx4 := newContext(dummyNexora)
 	ctx4.init(req4, rec4)
 
-	if err := ctx4.SendPrettyXml(out); err != nil {
+	if err := ctx4.SendPrettyXML(out); err != nil {
 		t.Fatalf("SendPrettyXml failed: %v", err)
 	}
 	if !strings.Contains(rec4.Body.String(), "\n") {
@@ -656,7 +656,7 @@ func TestContext_BindXml_SendXml(t *testing.T) {
 	ctx5 := newContext(dummyNexora)
 	ctx5.init(req5, rec5)
 
-	if err := ctx5.SendIndentXml(out, "", "\t"); err != nil {
+	if err := ctx5.SendIndentXML(out, "", "\t"); err != nil {
 		t.Fatalf("SendIndentXml failed: %v", err)
 	}
 	if !strings.Contains(rec5.Body.String(), "\t<name>") {

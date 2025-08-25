@@ -1,3 +1,4 @@
+// Package nexora is a new Go framework focused on features and speed.
 package nexora
 
 import (
@@ -43,17 +44,17 @@ type Config struct {
 
 	RouteGroup // Default route group for new routes
 
-	JsonEncoder EncoderFunc // This will be used to encode json payload
-	JsonDecoder DecoderFunc // This will be used to decode json playload
+	JSONEncoder EncoderFunc // This will be used to encode json payload
+	JSONDecoder DecoderFunc // This will be used to decode json playload
 	// secureJsonPrefix is the prefix added when sending JSON with c.SendSecureJson.
 	// It helps prevent JSON hijacking attacks by making the response invalid JavaScript
 	// until parsed as JSON. The default value is "while(1);".
-	SecureJsonPrefix       string
-	JsonIndentationEncoder IndentationEncoder // JsonIndentationEncoder encodes a value as indented JSON.
+	SecureJSONPrefix       string
+	JSONIndentationEncoder IndentationEncoder // JsonIndentationEncoder encodes a value as indented JSON.
 
-	XmlEncoder            EncoderFunc        // Encodes a Go value into XML.
-	XmlDecoder            DecoderFunc        // Decodes XML data into a Go value.
-	XmlIndentationEncoder IndentationEncoder // Encodes a Go value into indented XML.
+	XMLEncoder            EncoderFunc        // Encodes a Go value into XML.
+	XMLDecoder            DecoderFunc        // Decodes XML data into a Go value.
+	XMLIndentationEncoder IndentationEncoder // Encodes a Go value into indented XML.
 
 	// Enables automatic redirection if the current route can't be matched but a
 	// handler for the path with (without) the trailing slash exists.
@@ -126,14 +127,14 @@ func DefaultConfig() *Config {
 		HandleMethodNotAllowed: &redirect,
 		HandleOPTIONS:          &redirect,
 
-		JsonEncoder:            json.Marshal,
-		JsonDecoder:            json.Unmarshal,
-		JsonIndentationEncoder: json.MarshalIndent,
-		SecureJsonPrefix:       "while(1);",
+		JSONEncoder:            json.Marshal,
+		JSONDecoder:            json.Unmarshal,
+		JSONIndentationEncoder: json.MarshalIndent,
+		SecureJSONPrefix:       "while(1);",
 
-		XmlEncoder:            xml.Marshal,
-		XmlDecoder:            xml.Unmarshal,
-		XmlIndentationEncoder: xml.MarshalIndent,
+		XMLEncoder:            xml.Marshal,
+		XMLDecoder:            xml.Unmarshal,
+		XMLIndentationEncoder: xml.MarshalIndent,
 	}
 }
 
@@ -151,7 +152,7 @@ type Nexora struct {
 	jsonEncoder            EncoderFunc
 	jsonDecoder            DecoderFunc
 	jsonIndentationEncoder IndentationEncoder
-	secureJsonPrefix       []byte
+	secureJSONPrefix       []byte
 
 	xmlEncoder            EncoderFunc
 	xmlDecoder            DecoderFunc
@@ -201,28 +202,28 @@ func New(config ...*Config) *Nexora {
 		handleOPTIONS = *cfg.HandleOPTIONS
 	}
 	// JSON defaults
-	if cfg.JsonEncoder == nil {
-		cfg.JsonEncoder = json.Marshal
+	if cfg.JSONEncoder == nil {
+		cfg.JSONEncoder = json.Marshal
 	}
-	if cfg.JsonDecoder == nil {
-		cfg.JsonDecoder = json.Unmarshal
+	if cfg.JSONDecoder == nil {
+		cfg.JSONDecoder = json.Unmarshal
 	}
-	if cfg.JsonIndentationEncoder == nil {
-		cfg.JsonIndentationEncoder = json.MarshalIndent
+	if cfg.JSONIndentationEncoder == nil {
+		cfg.JSONIndentationEncoder = json.MarshalIndent
 	}
-	if cfg.SecureJsonPrefix == "" {
-		cfg.SecureJsonPrefix = "while(1);"
+	if cfg.SecureJSONPrefix == "" {
+		cfg.SecureJSONPrefix = "while(1);"
 	}
 
 	// XML defaults
-	if cfg.XmlEncoder == nil {
-		cfg.XmlEncoder = xml.Marshal
+	if cfg.XMLEncoder == nil {
+		cfg.XMLEncoder = xml.Marshal
 	}
-	if cfg.XmlDecoder == nil {
-		cfg.XmlDecoder = xml.Unmarshal
+	if cfg.XMLDecoder == nil {
+		cfg.XMLDecoder = xml.Unmarshal
 	}
-	if cfg.XmlIndentationEncoder == nil {
-		cfg.XmlIndentationEncoder = xml.MarshalIndent
+	if cfg.XMLIndentationEncoder == nil {
+		cfg.XMLIndentationEncoder = xml.MarshalIndent
 	}
 
 	n := &Nexora{
@@ -236,14 +237,14 @@ func New(config ...*Config) *Nexora {
 		handleOptions:          handleOPTIONS,
 		treeMutable:            true,
 
-		jsonEncoder:            cfg.JsonEncoder,
-		jsonDecoder:            cfg.JsonDecoder,
-		jsonIndentationEncoder: cfg.JsonIndentationEncoder,
-		secureJsonPrefix:       []byte(cfg.SecureJsonPrefix),
+		jsonEncoder:            cfg.JSONEncoder,
+		jsonDecoder:            cfg.JSONDecoder,
+		jsonIndentationEncoder: cfg.JSONIndentationEncoder,
+		secureJSONPrefix:       []byte(cfg.SecureJSONPrefix),
 
-		xmlEncoder:            cfg.XmlEncoder,
-		xmlDecoder:            cfg.XmlDecoder,
-		xmlIndentationEncoder: cfg.XmlIndentationEncoder,
+		xmlEncoder:            cfg.XMLEncoder,
+		xmlDecoder:            cfg.XMLDecoder,
+		xmlIndentationEncoder: cfg.XMLIndentationEncoder,
 
 		globalOptions:    cfg.GlobalOPTIONS,
 		notFound:         cfg.NotFound,
@@ -264,10 +265,6 @@ func New(config ...*Config) *Nexora {
 	}
 
 	return n
-}
-
-func (n *Nexora) SetSecureJsonPrefix(prefix string) {
-	n.secureJsonPrefix = []byte(prefix)
 }
 
 // Route returns the named route.

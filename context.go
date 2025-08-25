@@ -10,9 +10,11 @@ import (
 	"strings"
 )
 
-const ContentTypeOctetStream = "application/octet-stream"
-const ContentTypeJson = "application/json"
-const ContentTypeXml = "application/xml"
+const (
+	ContentTypeOctetStream = "application/octet-stream"
+	ContentTypeJSON        = "application/json"
+	ContentTypeXML         = "application/xml"
+)
 
 // Context represents the context of a single HTTP request in the Nexora framework.
 //
@@ -366,8 +368,8 @@ func (c *Context) IsAJAX() bool {
 	return c.GetHeader(HeaderXRequestedWith) == "XMLHttpRequest"
 }
 
-// BindJson parses the request body as JSON into v.
-func (c *Context) BindJson(v any) error {
+// BindJSON parses the request body as JSON into v.
+func (c *Context) BindJSON(v any) error {
 	err := c.nexora.jsonDecoder(c.Body(), v)
 	if err == nil {
 		return nil
@@ -412,42 +414,42 @@ func (c *Context) SendJsonp(callback string, v any) error {
 	return c.setBody(full)
 }
 
-// Json is a helper function that parses the JSON body of the request
+// JSON is a helper function that parses the JSON body of the request
 // into a new instance of type T, reducing boilerplate code.
-func Json[T any](c *Context) (*T, error) {
-	var value = new(T)
-	if err := c.BindJson(value); err != nil {
+func JSON[T any](c *Context) (*T, error) {
+	value := new(T)
+	if err := c.BindJSON(value); err != nil {
 		return nil, err
 	}
 	return value, nil
 }
 
-// SendJson encodes v as JSON and writes it to the response body.
+// SendJSON encodes v as JSON and writes it to the response body.
 // Returns an error if encoding fails.
-func (c *Context) SendJson(v any) error {
+func (c *Context) SendJSON(v any) error {
 	body, err := c.nexora.jsonEncoder(v)
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError, fmt.Sprintf("failed to encode JSON: %v", err))
 	}
-	c.SetContentType(ContentTypeJson)
+	c.SetContentType(ContentTypeJSON)
 	return c.setBody(body)
 }
 
-// SendPrettyJson encodes the given value `v` into a human-readable JSON format
+// SendPrettyJSON encodes the given value `v` into a human-readable JSON format
 // (pretty-printed with a single space as indentation). It sets the response
 // Content-Type to "application/json" and writes the JSON body to the response.
 //
 // Returns an error if JSON encoding or writing to the response fails.
-func (c *Context) SendPrettyJson(v any) error {
+func (c *Context) SendPrettyJSON(v any) error {
 	body, err := c.nexora.jsonIndentationEncoder(v, "", " ")
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError, fmt.Sprintf("failed to encode JSON: %v", err))
 	}
-	c.SetContentType(ContentTypeJson)
+	c.SetContentType(ContentTypeJSON)
 	return c.setBody(body)
 }
 
-// SendIndentJson encodes the given value `v` into indented JSON using the
+// SendIndentJSON encodes the given value `v` into indented JSON using the
 // provided prefix and indent string. It sets the response Content-Type to
 // "application/json" and writes the JSON body to the response.
 //
@@ -457,37 +459,37 @@ func (c *Context) SendPrettyJson(v any) error {
 //   - indent: A string used for indentation (e.g., "\t" or "  ").
 //
 // Returns an error if JSON encoding or writing to the response fails.
-func (c *Context) SendIndentJson(v any, prefix, indent string) error {
+func (c *Context) SendIndentJSON(v any, prefix, indent string) error {
 	body, err := c.nexora.jsonIndentationEncoder(v, prefix, indent)
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError, fmt.Sprintf("failed to encode JSON: %v", err))
 	}
-	c.SetContentType(ContentTypeJson)
+	c.SetContentType(ContentTypeJSON)
 	return c.setBody(body)
 }
 
-// SendSecureJson encodes the given value as JSON and writes it to the response
+// SendSecureJSON encodes the given value as JSON and writes it to the response
 // with the "application/json" Content-Type header. The output is prefixed with
 // c.nexora.secureJsonPrefix (e.g., "while(1);") to mitigate JSON hijacking
 // attacks when serving untrusted clients.
 //
 // If JSON encoding fails or writing to the response fails, an HTTP error is
 // returned.
-func (c *Context) SendSecureJson(v any) error {
+func (c *Context) SendSecureJSON(v any) error {
 	body, err := c.nexora.jsonEncoder(v)
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError,
 			fmt.Sprintf("failed to encode JSON: %v", err))
 	}
 
-	c.SetContentType(ContentTypeJson)
+	c.SetContentType(ContentTypeJSON)
 
-	full := append(c.nexora.secureJsonPrefix, body...)
+	full := append(c.nexora.secureJSONPrefix, body...)
 	return c.setBody(full)
 }
 
-// BindXml parses the request body as XML into v.
-func (c *Context) BindXml(v any) error {
+// BindXML parses the request body as XML into v.
+func (c *Context) BindXML(v any) error {
 	err := c.nexora.xmlDecoder(c.Body(), v)
 	if err == nil {
 		return nil
@@ -495,42 +497,42 @@ func (c *Context) BindXml(v any) error {
 	return NewHTTPError(StatusBadRequest, fmt.Sprintf("failed to decode XML: %v", err))
 }
 
-// Xml is a helper function that parses the XML body of the request
+// XML is a helper function that parses the XML body of the request
 // into a new instance of type T, reducing boilerplate code.
-func Xml[T any](c *Context) (*T, error) {
-	var value = new(T)
-	if err := c.BindXml(value); err != nil {
+func XML[T any](c *Context) (*T, error) {
+	value := new(T)
+	if err := c.BindXML(value); err != nil {
 		return nil, err
 	}
 	return value, nil
 }
 
-// SendXml encodes v as XML and writes it to the response body.
+// SendXML encodes v as XML and writes it to the response body.
 // Returns an error if encoding fails.
-func (c *Context) SendXml(v any) error {
+func (c *Context) SendXML(v any) error {
 	body, err := c.nexora.xmlEncoder(v)
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError, fmt.Sprintf("failed to encode XML: %v", err))
 	}
-	c.SetContentType(ContentTypeXml)
+	c.SetContentType(ContentTypeXML)
 	return c.setBody(body)
 }
 
-// SendPrettyXml encodes the given value `v` into a human-readable XML format
+// SendPrettyXML encodes the given value `v` into a human-readable XML format
 // (pretty-printed with a single space as indentation). It sets the response
 // Content-Type to "application/xml" and writes the XML body to the response.
 //
 // Returns an error if XML encoding or writing to the response fails.
-func (c *Context) SendPrettyXml(v any) error {
+func (c *Context) SendPrettyXML(v any) error {
 	body, err := c.nexora.xmlIndentationEncoder(v, "", " ")
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError, fmt.Sprintf("failed to encode XML: %v", err))
 	}
-	c.SetContentType(ContentTypeXml)
+	c.SetContentType(ContentTypeXML)
 	return c.setBody(body)
 }
 
-// SendIndentXml encodes the given value `v` into indented XML using the
+// SendIndentXML encodes the given value `v` into indented XML using the
 // provided prefix and indent string. It sets the response Content-Type to
 // "application/xml" and writes the XML body to the response.
 //
@@ -540,12 +542,12 @@ func (c *Context) SendPrettyXml(v any) error {
 //   - indent: A string used for indentation (e.g., "\t" or "  ").
 //
 // Returns an error if XML encoding or writing to the response fails.
-func (c *Context) SendIndentXml(v any, prefix, indent string) error {
+func (c *Context) SendIndentXML(v any, prefix, indent string) error {
 	body, err := c.nexora.xmlIndentationEncoder(v, prefix, indent)
 	if err != nil {
 		return NewHTTPError(StatusInternalServerError, fmt.Sprintf("failed to encode XML: %v", err))
 	}
-	c.SetContentType(ContentTypeXml)
+	c.SetContentType(ContentTypeXML)
 	return c.setBody(body)
 }
 
