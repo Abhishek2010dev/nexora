@@ -82,4 +82,3 @@ type DecoderFunc func(data []byte, v any) error
 //	  "foo": "bar"
 //	}
 type IndentationEncoder func(v any, prefix, indent string) ([]byte, error)
-

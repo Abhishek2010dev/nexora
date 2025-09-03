@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
@@ -662,4 +663,100 @@ func TestContext_BindXml_SendXml(t *testing.T) {
 	if !strings.Contains(rec5.Body.String(), "\t<name>") {
 		t.Errorf("SendIndentXml did not apply custom indent, got: %q", rec5.Body.String())
 	}
+}
+
+func TestContext_SendFile(t *testing.T) {
+	// --- Setup: Create a temporary file ---
+	tmpFile, err := os.CreateTemp("", "test-sendfile-*.txt")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name()) // Clean up the file
+
+	fileContent := "hello world from file"
+	if _, err := tmpFile.Write([]byte(fileContent)); err != nil {
+		t.Fatalf("Failed to write to temp file: %v", err)
+	}
+	tmpFile.Close()
+
+	// --- Setup: Create a temporary directory ---
+	tmpDir, err := os.MkdirTemp("", "test-sendfile-dir-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir) // Clean up the directory
+
+	// --- Test Case 1: Successful file sending ---
+	t.Run("Success", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/file", nil)
+		rec := httptest.NewRecorder()
+
+		ctx := newContext(nil)
+		ctx.init(req, rec)
+
+		err := ctx.SendFile(tmpFile.Name())
+		if err != nil {
+			t.Fatalf("SendFile failed: %v", err)
+		}
+
+		if rec.Code != http.StatusOK {
+			t.Errorf("unexpected status code: got %d, want %d", rec.Code, http.StatusOK)
+		}
+
+		if body := rec.Body.String(); body != fileContent {
+			t.Errorf("unexpected body: got %q, want %q", body, fileContent)
+		}
+
+		// http.ServeContent should set Content-Type.
+		// For a .txt file, it's often text/plain; charset=utf-8
+		if contentType := rec.Header().Get("Content-Type"); !strings.HasPrefix(contentType, "text/plain") {
+			t.Errorf("unexpected Content-Type: got %q, want text/plain", contentType)
+		}
+	})
+
+	// --- Test Case 2: File not found ---
+	t.Run("NotFound", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/file", nil)
+		rec := httptest.NewRecorder()
+
+		ctx := newContext(nil)
+		ctx.init(req, rec)
+
+		err := ctx.SendFile("non-existent-file.txt")
+		if err == nil {
+			t.Fatal("expected an error for non-existent file, got nil")
+		}
+
+		httpErr, ok := err.(*HTTPError)
+		if !ok {
+			t.Fatalf("expected HTTPError, got %T", err)
+		}
+
+		if httpErr.StatusCode != StatusNotFound {
+			t.Errorf("unexpected error code: got %d, want %d", httpErr.StatusCode, StatusNotFound)
+		}
+	})
+
+	// --- Test Case 3: Sending a directory ---
+	t.Run("Directory", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/file", nil)
+		rec := httptest.NewRecorder()
+
+		ctx := newContext(nil)
+		ctx.init(req, rec)
+
+		err := ctx.SendFile(tmpDir)
+		if err == nil {
+			t.Fatal("expected an error for sending a directory, got nil")
+		}
+
+		httpErr, ok := err.(*HTTPError)
+		if !ok {
+			t.Fatalf("expected HTTPError, got %T", err)
+		}
+
+		if httpErr.StatusCode != StatusBadRequest {
+			t.Errorf("unexpected error code: got %d, want %d", httpErr.StatusCode, StatusBadRequest)
+		}
+	})
 }

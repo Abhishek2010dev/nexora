@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 )
 
@@ -456,7 +457,7 @@ func (c *Context) SendPrettyJSON(v any) error {
 // Parameters:
 //   - v: The value to encode as JSON.
 //   - prefix: A string to place before each JSON line.
-//   - indent: A string used for indentation (e.g., "\t" or "  ").
+//   - indent: A string used for indentation (e.g., "	" or "  ").
 //
 // Returns an error if JSON encoding or writing to the response fails.
 func (c *Context) SendIndentJSON(v any, prefix, indent string) error {
@@ -539,7 +540,7 @@ func (c *Context) SendPrettyXML(v any) error {
 // Parameters:
 //   - v: The value to encode as XML.
 //   - prefix: A string to place before each XML line.
-//   - indent: A string used for indentation (e.g., "\t" or "  ").
+//   - indent: A string used for indentation (e.g., "	" or "  ").
 //
 // Returns an error if XML encoding or writing to the response fails.
 func (c *Context) SendIndentXML(v any, prefix, indent string) error {
@@ -566,6 +567,29 @@ func (c *Context) SendBytes(b []byte) error {
 // For sending a single byte, consider using SendBytes([]byte{b}).
 func (c *Context) SendByte(b []byte) error {
 	return c.setBody(b)
+}
+
+// SendFile sends a file.
+// It uses http.ServeContent to efficiently send the file, handling details
+// like Content-Type, ETag, and Range requests.
+func (c *Context) SendFile(filepath string) error {
+	file, err := os.Open(filepath)
+	if err != nil {
+		return NewHTTPError(StatusNotFound, "file not found")
+	}
+	defer file.Close()
+
+	info, err := file.Stat()
+	if err != nil {
+		return NewHTTPError(StatusInternalServerError, "failed to get file info")
+	}
+
+	if info.IsDir() {
+		return NewHTTPError(StatusBadRequest, "is a directory, not a file")
+	}
+
+	http.ServeContent(c.ResponseWriter(), c.Request(), info.Name(), info.ModTime(), file)
+	return nil
 }
 
 // setBody is an internal helper that writes the provided byte slice

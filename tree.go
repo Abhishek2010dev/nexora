@@ -578,8 +578,6 @@ func newTree() *tree {
 }
 
 // Add adds a node with the given handle to the path.
-//
-// WARNING: Not concurrency-safe!
 func (t *tree) Add(path string, handlers []Handler) {
 	if !strings.HasPrefix(path, "/") {
 		panicf("path must begin with '/' in path '%s'", path)
