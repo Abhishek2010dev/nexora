@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -123,6 +125,108 @@ func (c *Context) Param(name string, defaultValue ...string) string {
 func (c *Context) ParamExists(name string) (string, bool) {
 	val, ok := c.params[name]
 	return val, ok
+}
+
+// ParamAs is a generic function that retrieves a URL parameter by name and
+// converts it to the specified type T.
+//
+// It supports the following types: string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64, and bool.
+//
+// Returns the converted value and an error if the parameter is not found or
+// fails to convert.
+func ParamAs[T any](c *Context, name string) (T, error) {
+	paramStr := c.Param(name)
+	if paramStr == "" {
+		return *new(T), fmt.Errorf("parameter not found: %s", name)
+	}
+
+	var result any
+	var err error
+
+	switch any(*new(T)).(type) {
+	case string:
+		result = paramStr
+	case int:
+		result, err = strconv.Atoi(paramStr)
+	case int8:
+		var val int64
+		val, err = strconv.ParseInt(paramStr, 10, 8)
+		result = int8(val)
+	case int16:
+		var val int64
+		val, err = strconv.ParseInt(paramStr, 10, 16)
+		result = int16(val)
+	case int32:
+		var val int64
+		val, err = strconv.ParseInt(paramStr, 10, 32)
+		result = int32(val)
+	case int64:
+		result, err = strconv.ParseInt(paramStr, 10, 64)
+	case uint:
+		var val uint64
+		val, err = strconv.ParseUint(paramStr, 10, 64)
+		result = uint(val)
+	case uint8:
+		var val uint64
+		val, err = strconv.ParseUint(paramStr, 10, 8)
+		result = uint8(val)
+	case uint16:
+		var val uint64
+		val, err = strconv.ParseUint(paramStr, 10, 16)
+		result = uint16(val)
+	case uint32:
+		var val uint64
+		val, err = strconv.ParseUint(paramStr, 10, 32)
+		result = uint32(val)
+	case uint64:
+		result, err = strconv.ParseUint(paramStr, 10, 64)
+	case float32:
+		var val float64
+		val, err = strconv.ParseFloat(paramStr, 32)
+		result = float32(val)
+	case float64:
+		result, err = strconv.ParseFloat(paramStr, 64)
+	case bool:
+		result, err = strconv.ParseBool(paramStr)
+	default:
+		err = fmt.Errorf("unsupported type")
+	}
+
+	if err != nil {
+		return *new(T), err
+	}
+
+	return result.(T), nil
+}
+
+// Param is a generic function that retrieves a URL parameter by name and
+// converts it to the specified type T.
+//
+// It currently supports int conversion.
+//
+// Returns the converted value and an error if the parameter is not found or
+// fails to convert.
+func Param[T any](c *Context, name string) (T, error) {
+	paramStr := c.Param(name)
+	if paramStr == "" {
+		return *new(T), fmt.Errorf("parameter not found")
+	}
+
+	var result any
+	var err error
+
+	switch any(*new(T)).(type) {
+	case int:
+		result, err = strconv.Atoi(paramStr)
+	default:
+		err = fmt.Errorf("unsupported type")
+	}
+
+	if err != nil {
+		return *new(T), err
+	}
+
+	return result.(T), nil
 }
 
 // SendString sends a plain text response with the given string content.
@@ -606,5 +710,69 @@ func (c *Context) setBody(b []byte) error {
 	if n != len(b) {
 		return NewHTTPError(StatusInternalServerError, "failed to send complete bytes")
 	}
+	return nil
+}
+
+// BindParams binds the URL parameters to the fields of a struct.
+// The struct fields must be exported and have a `param` tag.
+func (c *Context) BindParams(v any) error {
+	val := reflect.ValueOf(v)
+	if val.Kind() != reflect.Ptr || val.Elem().Kind() != reflect.Struct {
+		return fmt.Errorf("v must be a pointer to a struct")
+	}
+
+	val = val.Elem()
+	typ := val.Type()
+
+	for i := 0; i < val.NumField(); i++ {
+		field := typ.Field(i)
+		paramName := field.Tag.Get("param")
+
+		if paramName == "" {
+			continue
+		}
+
+		paramValueStr := c.Param(paramName)
+		if paramValueStr == "" {
+			continue
+		}
+
+		fieldVal := val.Field(i)
+		if !fieldVal.CanSet() {
+			continue
+		}
+
+		switch field.Type.Kind() {
+		case reflect.String:
+			fieldVal.SetString(paramValueStr)
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			intVal, err := strconv.ParseInt(paramValueStr, 10, field.Type.Bits())
+			if err != nil {
+				return fmt.Errorf("failed to parse param '%s' as int: %w", paramName, err)
+			}
+			fieldVal.SetInt(intVal)
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			uintVal, err := strconv.ParseUint(paramValueStr, 10, field.Type.Bits())
+			if err != nil {
+				return fmt.Errorf("failed to parse param '%s' as uint: %w", paramName, err)
+			}
+			fieldVal.SetUint(uintVal)
+		case reflect.Float32, reflect.Float64:
+			floatVal, err := strconv.ParseFloat(paramValueStr, field.Type.Bits())
+			if err != nil {
+				return fmt.Errorf("failed to parse param '%s' as float: %w", paramName, err)
+			}
+			fieldVal.SetFloat(floatVal)
+		case reflect.Bool:
+			boolVal, err := strconv.ParseBool(paramValueStr)
+			if err != nil {
+				return fmt.Errorf("failed to parse param '%s' as bool: %w", paramName, err)
+			}
+			fieldVal.SetBool(boolVal)
+		default:
+			return fmt.Errorf("unsupported field type for param binding: %s", field.Type.Kind())
+		}
+	}
+
 	return nil
 }

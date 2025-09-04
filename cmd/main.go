@@ -1,13 +1,25 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/Abhishek2010dev/nexora"
 )
 
+type User struct {
+	ID   string `param:"id" json:"id"`
+	Name string `param:"name" json:"name"`
+}
+
 func main() {
-	router := nexora.New()
-	router.Get("/", func(c *nexora.Context) error {
-		return c.SendFile("codex.go")
+	app := nexora.New()
+	app.Get("/{id:int}/{name}", func(c *nexora.Context) error {
+		var u User
+		if err := c.BindParams(&u); err != nil {
+			return err
+		}
+		fmt.Println(u.ID)
+		return c.SendJSON(u)
 	})
-	router.Run(":3000")
+	app.Run(":8080")
 }
