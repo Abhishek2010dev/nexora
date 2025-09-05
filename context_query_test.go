@@ -5,24 +5,15 @@ import (
 	"testing"
 )
 
-func TestContext_Param_Generic(t *testing.T) {
-	req := httptest.NewRequest("GET", "/", nil)
+func TestContext_Query_Generic(t *testing.T) {
+	req := httptest.NewRequest("GET", "/?string=hello&int=-42&uint=42&float=3.14&bool=true&invalid=not-a-number", nil)
 	rec := httptest.NewRecorder()
 
 	ctx := newContext(nil)
 	ctx.init(req, rec)
 
-	ctx.params = map[string]string{
-		"string":  "hello",
-		"int":     "-42",
-		"uint":    "42",
-		"float":   "3.14",
-		"bool":    "true",
-		"invalid": "not-a-number",
-	}
-
 	t.Run("string", func(t *testing.T) {
-		val, err := Param[string](ctx, "string")
+		val, err := Query[string](ctx, "string")
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -32,7 +23,7 @@ func TestContext_Param_Generic(t *testing.T) {
 	})
 
 	t.Run("int", func(t *testing.T) {
-		val, err := Param[int](ctx, "int")
+		val, err := Query[int](ctx, "int")
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -42,7 +33,7 @@ func TestContext_Param_Generic(t *testing.T) {
 	})
 
 	t.Run("uint", func(t *testing.T) {
-		val, err := Param[uint](ctx, "uint")
+		val, err := Query[uint](ctx, "uint")
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -52,7 +43,7 @@ func TestContext_Param_Generic(t *testing.T) {
 	})
 
 	t.Run("float64", func(t *testing.T) {
-		val, err := Param[float64](ctx, "float")
+		val, err := Query[float64](ctx, "float")
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -62,7 +53,7 @@ func TestContext_Param_Generic(t *testing.T) {
 	})
 
 	t.Run("bool", func(t *testing.T) {
-		val, err := Param[bool](ctx, "bool")
+		val, err := Query[bool](ctx, "bool")
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -72,14 +63,14 @@ func TestContext_Param_Generic(t *testing.T) {
 	})
 
 	t.Run("invalid-int", func(t *testing.T) {
-		_, err := Param[int](ctx, "invalid")
+		_, err := Query[int](ctx, "invalid")
 		if err == nil {
 			t.Error("expected an error, but got nil")
 		}
 	})
 
 	t.Run("missing", func(t *testing.T) {
-		_, err := Param[int](ctx, "missing")
+		_, err := Query[int](ctx, "missing")
 		if err == nil {
 			t.Error("expected an error for missing key, but got nil")
 		}
