@@ -10,6 +10,7 @@ require (
 )
 
 require (
+	github.com/go-playground/form/v4 v4.2.1 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/rs/zerolog v1.34.0 // indirect

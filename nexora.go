@@ -146,6 +146,7 @@ type Nexora struct {
 	customMethodsIndex map[string]int
 	registeredPaths    map[string][]string
 	namedRoutes        map[string]*Route
+	binder             *Binder
 
 	RouteGroup // Default route group for new routes
 
@@ -264,8 +265,12 @@ func New(config ...*Config) *Nexora {
 		New: func() any { return newContext(n) },
 	}
 
+	n.binder = newBinder()
+
 	return n
 }
+
+
 
 // Route returns the named route.
 // Nil is returned if the named route cannot be found.
@@ -420,7 +425,7 @@ func (n *Nexora) allowed(path, reqMethod string) (allow string) {
 		return strings.Join(allowed, ", ")
 	}
 
-	return
+	return allow
 }
 
 // validatePath checks if the provided path is valid.

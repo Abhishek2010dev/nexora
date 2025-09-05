@@ -496,6 +496,25 @@ func (c *Context) BindJSON(v any) error {
 	return nil
 }
 
+// BindQuery binds the query parameters to the fields of a struct.
+func (c *Context) BindQuery(v any) error {
+	if err := c.nexora.binder.DecodeQuery(c.Queries(), v); err != nil {
+		return NewHTTPError(StatusBadRequest, fmt.Sprintf("failed to bind query: %v", err))
+	}
+	return nil
+}
+
+// BindForm binds the form data to the fields of a struct.
+func (c *Context) BindForm(v any) error {
+	if err := c.request.ParseForm(); err != nil {
+		return NewHTTPError(StatusBadRequest, fmt.Sprintf("failed to parse form: %v", err))
+	}
+	if err := c.nexora.binder.DecodeForm(c.request.Form, v); err != nil {
+		return NewHTTPError(StatusBadRequest, fmt.Sprintf("failed to bind form: %v", err))
+	}
+	return nil
+}
+
 // SendJsonp encodes v as JSON and wraps it in a JavaScript function call
 // using the given callback name (e.g., callback(v);). This is commonly
 // used to support cross-domain requests without CORS.

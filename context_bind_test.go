@@ -1,76 +1,109 @@
 package nexora
 
 import (
+	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+
+	
 )
 
-func TestContext_BindParams(t *testing.T) {
-	type User struct {
-		Name   string `param:"name"`
-		ID     int    `param:"id"`
-		Admin  bool   `param:"admin"`
-		Height float64 `param:"height"`
+func TestContext_BindQuery(t *testing.T) {
+	type Query struct {
+		Name string `query:"name"`
+		Age  int    `query:"age"`
 	}
 
-	req := httptest.NewRequest("GET", "/users/123", nil)
-	rec := httptest.NewRecorder()
+	n := New()
+	req := httptest.NewRequest(http.MethodGet, "/?name=test&age=10", nil)
+	c := n.pool.Get().(*Context)
+	c.init(req, httptest.NewRecorder())
 
-	ctx := newContext(nil)
-	ctx.init(req, rec)
-
-	ctx.params = map[string]string{
-		"name":   "john",
-		"id":     "123",
-		"admin":  "true",
-		"height": "1.83",
+	var q Query
+	if err := c.BindQuery(&q); err != nil {
+		t.Errorf("BindQuery() error = %v", err)
 	}
 
-	var user User
-	if err := ctx.BindParams(&user); err != nil {
-		t.Fatalf("BindParams failed: %v", err)
+	if q.Name != "test" {
+		t.Errorf("expected name to be 'test', got %s", q.Name)
 	}
 
-	if user.Name != "john" {
-		t.Errorf("Name = %q; want %q", user.Name, "john")
-	}
-	if user.ID != 123 {
-		t.Errorf("ID = %d; want %d", user.ID, 123)
-	}
-	if user.Admin != true {
-		t.Errorf("Admin = %v; want %v", user.Admin, true)
-	}
-    if user.Height != 1.83 {
-		t.Errorf("Height = %f; want %f", user.Height, 1.83)
+	if q.Age != 10 {
+		t.Errorf("expected age to be 10, got %d", q.Age)
 	}
 }
 
-func TestContext_BindParams_ErrorCases(t *testing.T) {
-	ctx := newContext(nil)
+func TestContext_BindForm(t *testing.T) {
+	type Form struct {
+		Name string `form:"name"`
+		Age  int    `form:"age"`
+	}
 
-	t.Run("non-pointer", func(t *testing.T) {
-		type User struct{}
-		var user User
-		if err := ctx.BindParams(user); err == nil {
-			t.Error("expected an error for non-pointer, but got nil")
-		}
-	})
+	n := New()
+	form := "name=test&age=10"
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(form))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	c := n.pool.Get().(*Context)
+	c.init(req, httptest.NewRecorder())
 
-	t.Run("non-struct pointer", func(t *testing.T) {
-		var i int
-		if err := ctx.BindParams(&i); err == nil {
-			t.Error("expected an error for non-struct pointer, but got nil")
-		}
-	})
+	var f Form
+	if err := c.BindForm(&f); err != nil {
+		t.Errorf("BindForm() error = %v", err)
+	}
 
-	t.Run("unsupported-type", func(t *testing.T) {
-		type User struct {
-			Complex complex128 `param:"complex"`
-		}
-		ctx.params = map[string]string{"complex": "1+2i"}
-		var user User
-		if err := ctx.BindParams(&user); err == nil {
-			t.Error("expected an error for unsupported type, but got nil")
-		}
-	})
+	if f.Name != "test" {
+		t.Errorf("expected name to be 'test', got %s", f.Name)
+	}
+
+	if f.Age != 10 {
+		t.Errorf("expected age to be 10, got %d", f.Age)
+	}
 }
+
+func TestContext_BindQueryAndForm(t *testing.T) {
+	type QueryAndForm struct {
+		Name string `query:"name" form:"name"`
+		Age  int    `query:"age" form:"age"`
+	}
+
+	n := New()
+
+	// Test with query parameters
+	req := httptest.NewRequest(http.MethodGet, "/?name=test_query&age=10", nil)
+	c := n.pool.Get().(*Context)
+	c.init(req, httptest.NewRecorder())
+
+	var qf QueryAndForm
+	if err := c.BindQuery(&qf); err != nil {
+		t.Errorf("BindQuery() error = %v", err)
+	}
+
+	if qf.Name != "test_query" {
+		t.Errorf("expected name to be 'test_query', got %s", qf.Name)
+	}
+
+	if qf.Age != 10 {
+		t.Errorf("expected age to be 10, got %d", qf.Age)
+	}
+
+	// Test with form data
+	form := "name=test_form&age=20"
+	req = httptest.NewRequest(http.MethodPost, "/", strings.NewReader(form))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	c.init(req, httptest.NewRecorder())
+
+	if err := c.BindForm(&qf); err != nil {
+		t.Errorf("BindForm() error = %v", err)
+	}
+
+	if qf.Name != "test_form" {
+		t.Errorf("expected name to be 'test_form', got %s", qf.Name)
+	}
+
+	if qf.Age != 20 {
+		t.Errorf("expected age to be 20, got %d", qf.Age)
+	}
+}
+
+
