@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -836,4 +837,71 @@ func (c *Context) BindParams(v any) error {
 	}
 
 	return nil
+}
+
+// Cookie is a type alias for http.Cookie, used for convenience within Nexora.
+type Cookie http.Cookie
+
+// SetCookie sets a cookie in the HTTP response.
+//
+// Parameters:
+//   - cookie: pointer to a Cookie struct containing all cookie attributes (Name, Value, Path, Domain, MaxAge, Secure, HttpOnly, etc.)
+//
+// Example:
+//
+//	c.SetCookie(&nexora.Cookie{
+//	    Name:     "session_id",
+//	    Value:    "abc123",
+//	    Path:     "/",
+//	    MaxAge:   3600,
+//	    HttpOnly: true,
+//	})
+func (c *Context) SetCookie(cookie *Cookie) {
+	http.SetCookie(c.writer, (*http.Cookie)(cookie))
+}
+
+// GetCookie retrieves a cookie value from the HTTP request by its name.
+//
+// Parameters:
+//   - name: the name of the cookie to retrieve.
+//
+// Returns:
+//   - string: the value of the cookie.
+//   - error: if the cookie is not found or any other error occurs.
+//
+// Example:
+//
+//	value, err := c.GetCookie("session_id")
+//	if err != nil {
+//	    // handle missing cookie
+//	}
+func (c *Context) GetCookie(name string) (string, error) {
+	cookie, err := c.request.Cookie(name)
+	if err != nil {
+		return "", err
+	}
+	return cookie.Value, nil
+}
+
+// DeleteCookie removes a cookie by setting its MaxAge to -1 and expiration to the Unix epoch.
+//
+// Parameters:
+//   - name: the name of the cookie to delete.
+//   - path: the cookie path (usually "/" for global).
+//   - domain: the cookie domain.
+//
+// Example:
+//
+//	c.DeleteCookie("session_id", "/", "example.com")
+func (c *Context) DeleteCookie(name, path, domain string) {
+	cookie := &http.Cookie{
+		Name:     name,
+		Value:    "",
+		Path:     path,
+		Domain:   domain,
+		MaxAge:   -1,
+		Expires:  time.Unix(0, 0),
+		HttpOnly: true,
+	}
+	http.SetCookie(c.writer, cookie)
 }
