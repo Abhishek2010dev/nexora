@@ -3,6 +3,7 @@ package nexora
 import (
 	"encoding/json"
 	"encoding/xml"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -407,7 +408,8 @@ func TestContext_Body(t *testing.T) {
 	req := httptest.NewRequest("POST", "/submit", strings.NewReader(bodyContent))
 	rec := httptest.NewRecorder()
 
-	ctx := newContext(nil)
+	dummyNexora := New()
+	ctx := newContext(dummyNexora)
 	ctx.init(req, rec)
 
 	got := ctx.Body()
@@ -464,12 +466,13 @@ func TestContext_BindJson_SendJson(t *testing.T) {
 
 	// --- Create a dummy Nexora instance with JSON encoder/decoder ---
 	dummyNexora := &Nexora{
-		jsonDecoder: func(data []byte, v any) error {
-			return json.Unmarshal(data, v)
+		jsonDecoder: func(r io.Reader, v any) error {
+			return json.NewDecoder(r).Decode(v)
 		},
 		jsonEncoder: func(v any) ([]byte, error) {
 			return json.Marshal(v)
 		},
+		bodyLimit: 1024,
 	}
 
 	// --- Test successful BindJson ---
@@ -533,13 +536,14 @@ func TestContext_SendSecureJson(t *testing.T) {
 
 	// --- Dummy Nexora instance ---
 	dummyNexora := &Nexora{
-		jsonDecoder: func(data []byte, v any) error {
-			return json.Unmarshal(data, v)
+		jsonDecoder: func(r io.Reader, v any) error {
+			return json.NewDecoder(r).Decode(v)
 		},
 		jsonEncoder: func(v any) ([]byte, error) {
 			return json.Marshal(v)
 		},
 		secureJSONPrefix: []byte("while(1);"),
+		bodyLimit:        1024,
 	}
 
 	// --- Test SendSecureJson ---
@@ -573,8 +577,8 @@ func TestContext_BindXml_SendXml(t *testing.T) {
 
 	// --- Create a dummy Nexora instance with XML encoder/decoder ---
 	dummyNexora := &Nexora{
-		xmlDecoder: func(data []byte, v any) error {
-			return xml.Unmarshal(data, v)
+		xmlDecoder: func(r io.Reader, v any) error {
+			return xml.NewDecoder(r).Decode(v)
 		},
 		xmlEncoder: func(v any) ([]byte, error) {
 			return xml.Marshal(v)
@@ -582,6 +586,7 @@ func TestContext_BindXml_SendXml(t *testing.T) {
 		xmlIndentationEncoder: func(v any, prefix, indent string) ([]byte, error) {
 			return xml.MarshalIndent(v, prefix, indent)
 		},
+		bodyLimit: 1024,
 	}
 
 	// --- Test successful BindXml ---

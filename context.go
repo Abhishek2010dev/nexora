@@ -1,6 +1,7 @@
 package nexora
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	jsoniter "github.com/json-iterator/go"
 )
 
 const (
@@ -33,6 +36,7 @@ type Context struct {
 	handlers    []Handler         // Middleware/handler chain.
 	nexora      *Nexora           // Reference to the Nexora app instance.
 	queryValues url.Values        // query cached
+	body        []byte
 }
 
 // newContext creates and returns a new Context for the given Nexora instance.
@@ -54,6 +58,7 @@ func (c *Context) init(request *http.Request, writer http.ResponseWriter) {
 	c.writer = NewResponseWriter(writer)
 	c.index = -1
 	c.queryValues = nil
+	c.body = nil
 }
 
 // Next executes the next handler in the middleware chain.
@@ -504,10 +509,17 @@ func (c *Context) RealIP() string {
 // Body returns the raw request body as []byte.
 // It reads and caches the body so multiple calls won't re-read the stream.
 func (c *Context) Body() []byte {
+	if c.body != nil {
+		return c.body
+	}
+
+	c.request.Body = http.MaxBytesReader(c.writer, c.request.Body, c.nexora.bodyLimit)
 	data, err := io.ReadAll(c.request.Body)
 	if err != nil {
+		Error("error reading request body: %v", err)
 		return nil
 	}
+	c.body = data
 	return data
 }
 
@@ -516,17 +528,23 @@ func (c *Context) IsAJAX() bool {
 	return c.GetHeader(HeaderXRequestedWith) == "XMLHttpRequest"
 }
 
+func (c *Context) getBodyReader() io.Reader {
+	if c.body != nil {
+		return bytes.NewReader(c.body)
+	}
+	c.request.Body = http.MaxBytesReader(c.writer, c.request.Body, c.nexora.bodyLimit)
+	var buf bytes.Buffer
+	defer func() {
+		c.body = buf.Bytes()
+	}()
+	return io.TeeReader(c.request.Body, &buf)
+}
+
 // BindJSON parses the request body as JSON into v.
 func (c *Context) BindJSON(v any) error {
-	err := c.nexora.jsonDecoder(c.Body(), v)
-	if err == nil {
-		return nil
-	}
-	// Decode JSON directly from the request body
-	if err := c.nexora.jsonDecoder(c.Body(), v); err != nil {
-		// Zero-cost, minimal allocation error handling
+	if err := c.nexora.jsonDecoder(c.getBodyReader(), v); err != nil {
 		switch e := err.(type) {
-		case *json.SyntaxError:
+		case *jsoniter.SyntaxError:
 			return NewHTTPError(StatusBadRequest, fmt.Sprintf("Malformed JSON at byte offset %d", e.Offset))
 		case *json.UnmarshalTypeError:
 			return NewHTTPError(StatusBadRequest,
@@ -657,11 +675,10 @@ func (c *Context) SendSecureJSON(v any) error {
 
 // BindXML parses the request body as XML into v.
 func (c *Context) BindXML(v any) error {
-	err := c.nexora.xmlDecoder(c.Body(), v)
-	if err == nil {
-		return nil
+	if err := c.nexora.xmlDecoder(c.getBodyReader(), v); err != nil {
+		return NewHTTPError(StatusBadRequest, err.Error())
 	}
-	return NewHTTPError(StatusBadRequest, fmt.Sprintf("failed to decode XML: %v", err))
+	return nil
 }
 
 // XML is a helper function that parses the XML body of the request

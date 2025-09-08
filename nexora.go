@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/valyala/bytebufferpool"
 )
 
@@ -115,7 +117,18 @@ type Config struct {
 
 	ErrorHandler func(c *Context, err error) error
 
+	// BodyLimit is the maximum size for a request body. The default is 4MB.
+	BodyLimit int64
+
 	pool *sync.Pool // Pool for Context objects
+}
+
+func newJSONDecoder(r io.Reader, v any) error {
+	return jsoniter.NewDecoder(r).Decode(v)
+}
+
+func newXMLDecoder(r io.Reader, v any) error {
+	return xml.NewDecoder(r).Decode(v)
 }
 
 // DefaultConfig returns a Config with sensible default values.
@@ -127,14 +140,15 @@ func DefaultConfig() *Config {
 		HandleMethodNotAllowed: &redirect,
 		HandleOPTIONS:          &redirect,
 
-		JSONEncoder:            json.Marshal,
-		JSONDecoder:            json.Unmarshal,
-		JSONIndentationEncoder: json.MarshalIndent,
+		JSONEncoder:            jsoniter.Marshal,
+		JSONDecoder:            newJSONDecoder,
+		JSONIndentationEncoder: jsoniter.MarshalIndent,
 		SecureJSONPrefix:       "while(1);",
 
 		XMLEncoder:            xml.Marshal,
-		XMLDecoder:            xml.Unmarshal,
+		XMLDecoder:            newXMLDecoder,
 		XMLIndentationEncoder: xml.MarshalIndent,
+		BodyLimit:             4 * 1024 * 1024, // 4 MB
 	}
 }
 
@@ -173,7 +187,8 @@ type Nexora struct {
 	panicHandler func(c *Context, v any) error
 	errorHandler func(c *Context, err error) error
 
-	pool *sync.Pool
+	pool      *sync.Pool
+	bodyLimit int64
 }
 
 // New creates a new instance of Nexora using the provided config.
@@ -207,7 +222,7 @@ func New(config ...*Config) *Nexora {
 		cfg.JSONEncoder = json.Marshal
 	}
 	if cfg.JSONDecoder == nil {
-		cfg.JSONDecoder = json.Unmarshal
+		cfg.JSONDecoder = newJSONDecoder
 	}
 	if cfg.JSONIndentationEncoder == nil {
 		cfg.JSONIndentationEncoder = json.MarshalIndent
@@ -221,10 +236,14 @@ func New(config ...*Config) *Nexora {
 		cfg.XMLEncoder = xml.Marshal
 	}
 	if cfg.XMLDecoder == nil {
-		cfg.XMLDecoder = xml.Unmarshal
+		cfg.XMLDecoder = newXMLDecoder
 	}
 	if cfg.XMLIndentationEncoder == nil {
 		cfg.XMLIndentationEncoder = xml.MarshalIndent
+	}
+
+	if cfg.BodyLimit == 0 {
+		cfg.BodyLimit = 4 * 1024 * 1024
 	}
 
 	n := &Nexora{
@@ -252,6 +271,7 @@ func New(config ...*Config) *Nexora {
 		methodNotAllowed: cfg.MethodNotAllowed,
 		panicHandler:     cfg.PanicHandler,
 		errorHandler:     cfg.ErrorHandler,
+		bodyLimit:        cfg.BodyLimit,
 	}
 
 	if cfg.LoggerConfig != nil {
@@ -269,8 +289,6 @@ func New(config ...*Config) *Nexora {
 
 	return n
 }
-
-
 
 // Route returns the named route.
 // Nil is returned if the named route cannot be found.
